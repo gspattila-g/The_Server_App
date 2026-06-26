@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/game.dart';
 
@@ -24,7 +25,7 @@ class GameService {
           .collection(_gamesSubcollection)
           .add(game.toJson());
     } catch (e) {
-      print('Hiba a játék hozzáadásakor: $e');
+      debugPrint('Hiba a játék hozzáadásakor: $e');
       rethrow;
     }
   }
@@ -42,7 +43,7 @@ class GameService {
           .doc(game.id)
           .update(game.toJson());
     } catch (e) {
-      print('Hiba a játék frissítésekor: $e');
+      debugPrint('Hiba a játék frissítésekor: $e');
       rethrow;
     }
   }
@@ -60,7 +61,7 @@ class GameService {
           .doc(gameId)
           .delete();
     } catch (e) {
-      print('Hiba a játék törlésekor: $e');
+      debugPrint('Hiba a játék törlésekor: $e');
       rethrow;
     }
   }
@@ -110,7 +111,7 @@ class GameService {
       }
       return null;
     } catch (e) {
-      print('Hiba a játék lekérésekor ID alapján: $e');
+      debugPrint('Hiba a játék lekérésekor ID alapján: $e');
       rethrow;
     }
   }

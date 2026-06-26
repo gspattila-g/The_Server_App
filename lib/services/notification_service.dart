@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/notification.dart'; // Importáljuk az AppNotification modellt
+import 'package:flutter/foundation.dart';
+import '../models/notification.dart';
 
 /// Értesítési szolgáltatás osztály
 ///
@@ -26,7 +27,7 @@ class NotificationService {
       // Visszaadjuk a Firestore által generált dokumentum ID-t.
       return docRef.id;
     } catch (e) {
-      print('Hiba az értesítés hozzáadásakor: $e');
+      debugPrint('Hiba az értesítés hozzáadásakor: $e');
       rethrow; // Újra dobjuk a kivételt, hogy a hívó kezelhesse.
     }
   }
@@ -56,7 +57,7 @@ class NotificationService {
     try {
       await _notificationsCollection.doc(notificationId).update({'isRead': true});
     } catch (e) {
-      print('Hiba az értesítés olvasottként jelölésekor: $e');
+      debugPrint('Hiba az értesítés olvasottként jelölésekor: $e');
       rethrow;
     }
   }
@@ -77,7 +78,7 @@ class NotificationService {
       }
       await batch.commit();
     } catch (e) {
-      print('Hiba az összes értesítés olvasottként jelölésekor: $e');
+      debugPrint('Hiba az összes értesítés olvasottként jelölésekor: $e');
       rethrow;
     }
   }
@@ -89,7 +90,7 @@ class NotificationService {
     try {
       await _notificationsCollection.doc(notificationId).delete();
     } catch (e) {
-      print('Hiba az értesítés törlésekor: $e');
+      debugPrint('Hiba az értesítés törlésekor: $e');
       rethrow;
     }
   }
