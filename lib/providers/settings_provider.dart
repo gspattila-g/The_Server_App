@@ -1,37 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// A ChangeNotifier that manages the application's theme mode (dark/light)
-/// and notification settings.
-///
-/// It provides methods to toggle these settings and notifies listeners
-/// when the state changes, allowing UI elements to react accordingly
-/// without rebuilding the entire widget tree.
 class SettingsProvider extends ChangeNotifier {
-  // Private internal state for dark mode and notifications.
+  static const _keyDarkMode = 'isDarkMode';
+  static const _keyNotifications = 'notificationsEnabled';
+
   bool _isDarkMode = false;
   bool _notificationsEnabled = true;
 
-  /// Getter for the current dark mode status.
   bool get isDarkMode => _isDarkMode;
-
-  /// Getter for the current notifications enabled status.
   bool get notificationsEnabled => _notificationsEnabled;
 
-  /// Toggles the dark mode setting.
-  ///
-  /// [value] The new value for dark mode (true for dark, false for light).
-  void toggleTheme(bool value) {
-    _isDarkMode = value;
-    // Notify all widgets listening to this provider that the state has changed.
+  SettingsProvider() {
+    _loadFromDisk();
+  }
+
+  Future<void> _loadFromDisk() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isDarkMode = prefs.getBool(_keyDarkMode) ?? false;
+    _notificationsEnabled = prefs.getBool(_keyNotifications) ?? true;
     notifyListeners();
   }
 
-  /// Toggles the notifications enabled setting.
-  ///
-  /// [value] The new value for notifications (true for enabled, false for disabled).
-  void toggleNotifications(bool value) {
+  Future<void> toggleTheme(bool value) async {
+    _isDarkMode = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyDarkMode, value);
+    notifyListeners();
+  }
+
+  Future<void> toggleNotifications(bool value) async {
     _notificationsEnabled = value;
-    // Notify all widgets listening to this provider that the state has changed.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyNotifications, value);
     notifyListeners();
   }
 }
