@@ -26,9 +26,7 @@ class _HomePageState extends State<HomePage> {
   final Map<String, UserProfile> _profileCache = {};
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
-  // Ez a metódus kezeli az új poszt mentését a Firestore-ba.
-  // Mostantól a felhasználó UID-jét és megjelenítendő nevét is mentjük.
-  Future<void> _addNewPost(BuildContext context, String text) async {
+  Future<void> _addNewPost(BuildContext context, String text, String? imageUrl) async {
     if (_currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hiba: Nincs bejelentkezett felhasználó. Posztolás sikertelen.')),
@@ -37,16 +35,16 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      // Lekérjük a felhasználó megjelenítendő nevét a ProfileService-től
       final userProfile = await _profileService.getProfile(_currentUserId!);
       final userDisplayName = userProfile?.displayName ?? 'Ismeretlen Felhasználó';
 
       await _firestore.collection('posts').add({
         'message': text,
+        'imageUrl': imageUrl,
         'timestamp': FieldValue.serverTimestamp(),
-        'senderId': _currentUserId, // Menti a küldő UID-jét
-        'senderDisplayName': userDisplayName, // Menti a küldő megjelenítendő nevét
-        'likes': [], // Üres lista a lájkoknak
+        'senderId': _currentUserId,
+        'senderDisplayName': userDisplayName,
+        'likes': [],
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Poszt sikeresen közzétéve!')),
@@ -108,15 +106,14 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.add_box),
             tooltip: 'Új poszt',
             onPressed: () async {
-              // Navigáljunk az új poszt oldalra, és várjuk meg az eredményt (a poszt szövegét).
-              final newPostText = await Navigator.push(
+              final result = await Navigator.push<Map<String, dynamic?>>(
                 context,
-                MaterialPageRoute(builder: (context) => NewPostPage()),
+                MaterialPageRoute(builder: (context) => const NewPostPage()),
               );
-
-              // Ha van poszt szöveg, mentsük el.
-              if (newPostText != null && newPostText.isNotEmpty) {
-                _addNewPost(context, newPostText);
+              if (result != null) {
+                final text = (result['text'] as String?) ?? '';
+                final imageUrl = result['imageUrl'] as String?;
+                _addNewPost(context, text, imageUrl);
               }
             },
           ),
@@ -165,11 +162,12 @@ class _HomePageState extends State<HomePage> {
   Widget _buildPostCard(DocumentSnapshot post) {
     final Map<String, dynamic> data = post.data() as Map<String, dynamic>;
     final String postId = post.id;
-    final String message = data['message'] ?? 'Nincs üzenet';
+    final String message = data['message'] ?? '';
+    final String? imageUrl = data['imageUrl'] as String?;
     final String senderId = data['senderId'] ?? '';
     final Timestamp timestamp = data['timestamp'] ?? Timestamp.now();
-    final List<dynamic> likes = data['likes'] ?? []; // A lájkolók UID-jeinek listája
-    final bool isLikedByCurrentUser = likes.contains(_currentUserId); // Lájkolta-e a jelenlegi felhasználó
+    final List<dynamic> likes = data['likes'] ?? [];
+    final bool isLikedByCurrentUser = likes.contains(_currentUserId);
 
     // Lekérjük a posztoló megjelenítendő nevét.
     return FutureBuilder<UserProfile?>(
@@ -226,13 +224,31 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 15),
-                    // Poszt üzenete
-                    Text(
-                      message,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 12),
+                    if (message.isNotEmpty)
+                      Text(message, style: const TextStyle(fontSize: 16)),
+                    if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                      if (message.isNotEmpty) const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, progress) => progress == null
+                              ? child
+                              : const SizedBox(
+                                  height: 180,
+                                  child: Center(child: CircularProgressIndicator()),
+                                ),
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                            height: 60,
+                            child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     // Lájk és komment szekció
                     Row(
                       children: [
