@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../services/profile_service.dart'; // A kommentelő displayName-ének lekéréséhez
 
@@ -26,9 +30,13 @@ class CommentsPage extends StatefulWidget {
 class _CommentsPageState extends State<CommentsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _commentController = TextEditingController();
-  final ProfileService _profileService = ProfileService(); // Szükséges a felhasználó nevének lekéréséhez
+  final ProfileService _profileService = ProfileService();
+  final ImagePicker _picker = ImagePicker();
 
-  final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid; // Jelenlegi felhasználó UID-je
+  final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+  File? _selectedImage;
+  bool _isSending = false;
 
   @override
   void dispose() {
@@ -36,49 +44,92 @@ class _CommentsPageState extends State<CommentsPage> {
     super.dispose();
   }
 
-  /// Új komment hozzáadása a poszthoz.
+  Future<void> _pickImage() async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1080,
+      );
+      if (picked != null) {
+        setState(() => _selectedImage = File(picked.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nem sikerült a kép kiválasztása.')),
+        );
+      }
+    }
+  }
+
+  Future<String?> _uploadImage(File image) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.jpg';
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('comment_images')
+        .child(fileName);
+    await ref.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
+    return await ref.getDownloadURL();
+  }
+
   Future<void> _addComment() async {
-    if (_commentController.text.isEmpty) {
+    final text = _commentController.text.trim();
+    if (text.isEmpty && _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A komment nem lehet üres!')),
+        const SnackBar(content: Text('Írj valamit, vagy válassz képet!')),
       );
       return;
     }
     if (_currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hiba: Nincs bejelentkezett felhasználó a kommenteléshez.')),
+        const SnackBar(content: Text('Hiba: Nincs bejelentkezett felhasználó.')),
       );
       return;
     }
 
+    setState(() => _isSending = true);
+
     try {
-      // Lekérjük a kommentelő felhasználó profilját a megjelenítendő névhez.
       final currentUserProfile = await _profileService.getProfile(_currentUserId!);
       final senderDisplayName = currentUserProfile?.displayName ?? 'Ismeretlen';
+
+      String? imageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await _uploadImage(_selectedImage!);
+      }
 
       await _firestore
           .collection('posts')
           .doc(widget.postId)
-          .collection('comments') // Kommentek alkollekció
+          .collection('comments')
           .add({
         'senderId': _currentUserId,
         'senderDisplayName': senderDisplayName,
-        'commentText': _commentController.text.trim(),
+        'commentText': text,
+        'imageUrl': imageUrl,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      _commentController.clear(); // Komment elküldése után töröljük a beviteli mezőt
+      _commentController.clear();
+      setState(() => _selectedImage = null);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hiba a komment hozzáadásakor: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hiba a komment elküldésekor: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
-  /// Komment elemének felépítése.
   Widget _buildCommentItem(Map<String, dynamic> commentData) {
     final String senderDisplayName = commentData['senderDisplayName'] ?? 'Ismeretlen';
     final String commentText = commentData['commentText'] ?? '';
+    final String? imageUrl = commentData['imageUrl'] as String?;
     final Timestamp? timestamp = commentData['timestamp'] as Timestamp?;
 
     return Card(
@@ -102,8 +153,31 @@ class _CommentsPageState extends State<CommentsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(commentText, style: const TextStyle(fontSize: 14)),
+            if (commentText.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(commentText, style: const TextStyle(fontSize: 14)),
+            ],
+            if (imageUrl != null && imageUrl.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          height: 120,
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    height: 60,
+                    child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -200,14 +274,53 @@ class _CommentsPageState extends State<CommentsPage> {
               },
             ),
           ),
-          // Komment beviteli mező és küldés gomb
+          // Kiválasztott kép előnézete
+          if (_selectedImage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      _selectedImage!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedImage = null),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Komment beviteli mező és gombok
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: _isSending ? null : _pickImage,
+                  icon: const Icon(Icons.image),
+                  color: Theme.of(context).primaryColor,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _commentController,
+                    enabled: !_isSending,
                     decoration: InputDecoration(
                       hintText: 'Írj kommentet...',
                       border: OutlineInputBorder(
@@ -215,15 +328,20 @@ class _CommentsPageState extends State<CommentsPage> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     ),
-                    obscureText: false,
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _addComment,
-                  icon: const Icon(Icons.send),
-                  color: Theme.of(context).primaryColor,
-                ),
+                _isSending
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        onPressed: _addComment,
+                        icon: const Icon(Icons.send),
+                        color: Theme.of(context).primaryColor,
+                      ),
               ],
             ),
           ),
