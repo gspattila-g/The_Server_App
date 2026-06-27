@@ -42,6 +42,13 @@ class _ChatPageState extends State<ChatPage> {
   // Vezérlő a ListView görgetéséhez, hogy mindig az utolsó üzenet látszódjon.
   final ScrollController _scrollController = ScrollController();
 
+  // Stable stream references (must not recreate on every build)
+  late Stream<QuerySnapshot> _messagesStream;
+  late Stream<DocumentSnapshot> _chatRoomStream;
+
+  // Receiver's last-read timestamp, updated by the room stream listener
+  Timestamp? _receiverReadAt;
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +66,11 @@ class _ChatPageState extends State<ChatPage> {
     // Generáljuk a chat szoba ID-jét a jelenlegi és a fogadó felhasználó UID-jei alapján.
     _chatRoomId = _chatService.getChatRoomId(_currentUser!.uid, widget.receiverUserId);
 
+    _messagesStream = _chatService.getMessages(_chatRoomId);
+    _chatRoomStream = _chatService.getChatRoomStream(_chatRoomId);
+
     _loadProfiles();
+    _chatService.markAsRead(_chatRoomId, _currentUser!.uid);
   }
 
   Future<void> _loadProfiles() async {
@@ -112,12 +123,10 @@ class _ChatPageState extends State<ChatPage> {
   /// Üzenetbuborék építése a chaten belül.
   ///
   /// [messageData] az üzenet Firestore adatait tartalmazó Map.
-  Widget _buildMessageItem(Map<String, dynamic> messageData) {
-    // Ellenőrizzük, hogy a jelenlegi felhasználó a küldő.
-    final bool isCurrentUser = messageData['senderId'] == _currentUser!.uid;
+  Widget _buildMessageItem(Map<String, dynamic> messageData, {bool isLastSentByMe = false, bool isRead = false}) {
+    final bool isCurrentUser = messageData['senderId'] == _currentUser?.uid;
 
     return Align(
-      // Igazítjuk a buborékot attól függően, hogy ki küldte az üzenetet.
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
@@ -128,6 +137,7 @@ class _ChatPageState extends State<ChatPage> {
         ),
         child: Column(
           crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               messageData['senderName'] ?? messageData['senderEmail'] ?? 'Ismeretlen',
@@ -138,7 +148,6 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
-            // Az üzenet szövege
             Text(
               messageData['message'],
               style: TextStyle(
@@ -147,10 +156,30 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
-            // Időbélyeg (timestamp) formázva
-            Text(
-              _formatTimestamp(messageData['timestamp'] as Timestamp?),
-              style: const TextStyle(fontSize: 10, color: Colors.black54),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTimestamp(messageData['timestamp'] as Timestamp?),
+                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+                if (isLastSentByMe) ...[
+                  const SizedBox(width: 5),
+                  Icon(
+                    isRead ? Icons.done_all : Icons.done,
+                    size: 13,
+                    color: isRead ? Colors.blue : Colors.black45,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    isRead ? 'Elolvasva' : 'Elküldve',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isRead ? Colors.blue : Colors.black45,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -239,33 +268,77 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           // Üzenetek listája
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _chatService.getMessages(_chatRoomId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Hiba az üzenetek betöltésekor: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Még nincs üzenet. Kezdj el beszélgetni!'));
-                }
-
-                // Üzenetek megjelenítése fordított sorrendben (legújabb alul)
-                final messages = snapshot.data!.docs.reversed.toList();
-
-                return ListView.builder(
-                  controller: _scrollController, // Hozzáadjuk a görgetésvezérlőt
-                  // reverse: true; (legújabb üzenetek alul)
-                  reverse: true,
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final messageData = messages[index].data() as Map<String, dynamic>;
-                    return _buildMessageItem(messageData);
+            child: Column(
+              children: [
+                // Hidden room stream listener — reads receiverReadAt without causing rebuild loops
+                StreamBuilder<DocumentSnapshot>(
+                  stream: _chatRoomStream,
+                  builder: (context, roomSnapshot) {
+                    if (roomSnapshot.hasData) {
+                      final roomData = roomSnapshot.data!.data() as Map<String, dynamic>?;
+                      final readBy = roomData?['readBy'] as Map<String, dynamic>?;
+                      final ts = readBy?[widget.receiverUserId] as Timestamp?;
+                      if (ts != _receiverReadAt) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _receiverReadAt = ts);
+                        });
+                      }
+                    }
+                    return const SizedBox.shrink();
                   },
-                );
-              },
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: _messagesStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Hiba az üzenetek betöltésekor: ${snapshot.error}'));
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('Még nincs üzenet. Kezdj el beszélgetni!'));
+                      }
+
+                      final allDocs = snapshot.data!.docs;
+                      final uid = _currentUser?.uid ?? '';
+
+                      // Find the document ID of the last message sent by current user
+                      String? lastSentDocId;
+                      for (int i = allDocs.length - 1; i >= 0; i--) {
+                        final data = allDocs[i].data() as Map<String, dynamic>;
+                        if (data['senderId'] == uid && uid.isNotEmpty) {
+                          lastSentDocId = allDocs[i].id;
+                          break;
+                        }
+                      }
+
+                      final messages = allDocs.reversed.toList();
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final doc = messages[index];
+                          final messageData = doc.data() as Map<String, dynamic>;
+                          final isLastSent = doc.id == lastSentDocId;
+
+                          bool isRead = false;
+                          if (isLastSent && _receiverReadAt != null) {
+                            final msgTimestamp = messageData['timestamp'] as Timestamp?;
+                            isRead = msgTimestamp != null &&
+                                !_receiverReadAt!.toDate().isBefore(msgTimestamp.toDate());
+                          }
+
+                          return _buildMessageItem(messageData, isLastSentByMe: isLastSent, isRead: isRead);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           // Üzenet beviteli mező és küldés gomb

@@ -119,4 +119,14 @@ class ChatService {
         .orderBy('timestamp', descending: false) // Üzenetek rendezése időbélyeg szerint, növekvő sorrendben (legrégebbi elől)
         .snapshots(); // A `snapshots()` metódus biztosítja a valós idejű frissítéseket
   }
+
+  Stream<DocumentSnapshot> getChatRoomStream(String chatRoomId) {
+    return _firestore.collection('chats').doc(chatRoomId).snapshots();
+  }
+
+  Future<void> markAsRead(String chatRoomId, String userId) async {
+    await _firestore.collection('chats').doc(chatRoomId).set({
+      'readBy': {userId: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
 }
