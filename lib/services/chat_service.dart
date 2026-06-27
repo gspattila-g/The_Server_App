@@ -36,38 +36,67 @@ class ChatService {
   /// 3. Összeállítja az üzenet adatait egy `Map` formátumban, beleértve a
   ///    küldő és fogadó azonosítóját, az üzenet szövegét, és egy szerveroldali időbélyeget.
   /// 4. Hozzáadja az üzenetet a Firestore megfelelő chat szoba 'messages' alkollekciójához.
-  Future<void> sendMessage(String receiverId, String message) async {
-    // Ellenőrizzük, hogy a jelenlegi felhasználó be van-e jelentkezve.
+  Future<void> sendMessage(String receiverId, String message, {String? senderDisplayName}) async {
     final String? currentUserId = _auth.currentUser?.uid;
-    final String? currentUserEmail = _auth.currentUser?.email;
+    if (currentUserId == null) throw Exception('Nincs bejelentkezett felhasználó.');
 
-    if (currentUserId == null || currentUserEmail == null) {
-      // Ha nincs bejelentkezett felhasználó, kivételt dobunk.
-      throw Exception('Nincs bejelentkezett felhasználó.');
-    }
-
-    // Létrehozzuk a chat szoba azonosítóját a küldő és fogadó UID-jei alapján.
     final String chatRoomId = getChatRoomId(currentUserId, receiverId);
+    final chatRoomRef = _firestore.collection('chats').doc(chatRoomId);
 
-    // Üzenet adatainak összeállítása Map formátumban.
-    // A 'timestamp' mezőhöz `FieldValue.serverTimestamp()`-ot használunk,
-    // ami biztosítja, hogy az időbélyeget a Firestore szervere állítsa be,
-    // elkerülve az ügyféloldali óraeltérések okozta problémákat.
-    final Map<String, dynamic> messageData = {
+    final messageData = {
       'senderId': currentUserId,
-      'senderEmail': currentUserEmail, // Mentjük a küldő email címét is az egyszerű megjelenítéshez
+      'senderName': senderDisplayName ?? _auth.currentUser?.email ?? 'Ismeretlen',
       'receiverId': receiverId,
       'message': message,
-      'timestamp': FieldValue.serverTimestamp(), // Firestore szerveroldali időbélyeg
+      'timestamp': FieldValue.serverTimestamp(),
     };
 
-    // Mentjük az üzenetet a Firestore-ba a megfelelő chat szoba alkollekciójába.
-    // A struktúra: `chats` (fő kollekció) -> `[chatRoomId]` (dokumentum) -> `messages` (alkollekció) -> `[üzenet dokumentum]`
-    await _firestore
-        .collection('chats') // Fő chat kollekció
-        .doc(chatRoomId)     // Az adott chat szoba dokumentuma (pl. "userA_userB")
-        .collection('messages') // Az üzenetek alkollekciója ezen a chat szobán belül
-        .add(messageData);   // Az új üzenet hozzáadása egy automatikusan generált ID-vel
+    await chatRoomRef.collection('messages').add(messageData);
+
+    await chatRoomRef.set({
+      'participants': [currentUserId, receiverId],
+      'lastMessage': message,
+      'lastMessageTime': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': currentUserId,
+    }, SetOptions(merge: true));
+  }
+
+  Stream<QuerySnapshot> getUserChats(String userId) {
+    return _firestore
+        .collection('chats')
+        .where('participants', arrayContains: userId)
+        .orderBy('lastMessageTime', descending: true)
+        .snapshots();
+  }
+
+  Future<void> backfillExistingChats(String currentUserId) async {
+    final friendsDoc = await _firestore.collection('friends').doc(currentUserId).get();
+    final friendIds = List<String>.from(friendsDoc.data()?['friendIds'] ?? []);
+
+    for (final friendId in friendIds) {
+      final chatRoomId = getChatRoomId(currentUserId, friendId);
+      final chatDoc = await _firestore.collection('chats').doc(chatRoomId).get();
+
+      if (chatDoc.data()?['participants'] == null) {
+        final lastMsgSnap = await _firestore
+            .collection('chats')
+            .doc(chatRoomId)
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+
+        if (lastMsgSnap.docs.isNotEmpty) {
+          final lastMsg = lastMsgSnap.docs.first.data();
+          await _firestore.collection('chats').doc(chatRoomId).set({
+            'participants': [currentUserId, friendId],
+            'lastMessage': lastMsg['message'] ?? '',
+            'lastMessageTime': lastMsg['timestamp'],
+            'lastMessageSenderId': lastMsg['senderId'] ?? '',
+          }, SetOptions(merge: true));
+        }
+      }
+    }
   }
 
   /// Streamet biztosít az üzenetek valós idejű figyeléséhez egy adott chat szobában.

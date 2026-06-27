@@ -28,8 +28,8 @@ class _ChatPageState extends State<ChatPage> {
   final ChatService _chatService = ChatService();
   final ProfileService _profileService = ProfileService(); // Szükséges a felhasználó nevének lekéréséhez
 
-  // A jelenlegi bejelentkezett felhasználó UID-je
-  User? _currentUser = FirebaseAuth.instance.currentUser;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  String? _currentUserDisplayName;
 
   // A chat szoba ID-je
   late String _chatRoomId;
@@ -57,23 +57,25 @@ class _ChatPageState extends State<ChatPage> {
     // Generáljuk a chat szoba ID-jét a jelenlegi és a fogadó felhasználó UID-jei alapján.
     _chatRoomId = _chatService.getChatRoomId(_currentUser!.uid, widget.receiverUserId);
 
-    // Lekérdezzük a fogadó felhasználó profilját, hogy legyen megjelenítendő neve.
-    _loadReceiverProfile();
+    _loadProfiles();
   }
 
-  /// Betölti a fogadó felhasználó profilját a ProfileService segítségével.
-  Future<void> _loadReceiverProfile() async {
+  Future<void> _loadProfiles() async {
     try {
-      final profile = await _profileService.getProfile(widget.receiverUserId);
+      final results = await Future.wait([
+        _profileService.getProfile(widget.receiverUserId),
+        if (_currentUser != null) _profileService.getProfile(_currentUser!.uid),
+      ]);
       if (mounted) {
         setState(() {
-          _receiverProfile = profile;
+          _receiverProfile = results[0];
+          if (results.length > 1) _currentUserDisplayName = results[1]?.displayName;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hiba a felhasználó profiljának betöltésekor: $e')),
+          SnackBar(content: Text('Hiba: $e')),
         );
       }
     }
@@ -83,7 +85,11 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _sendMessage() async {
     if (_messageController.text.isNotEmpty) {
       try {
-        await _chatService.sendMessage(widget.receiverUserId, _messageController.text.trim());
+        await _chatService.sendMessage(
+          widget.receiverUserId,
+          _messageController.text.trim(),
+          senderDisplayName: _currentUserDisplayName,
+        );
         _messageController.clear(); // Üzenet elküldése után töröljük a beviteli mezőt
         // Görgetés az utolsó üzenetre
         if (_scrollController.hasClients) {
@@ -121,9 +127,8 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Küldő email címének megjelenítése
             Text(
-              messageData['senderEmail'] ?? 'Ismeretlen',
+              messageData['senderName'] ?? messageData['senderEmail'] ?? 'Ismeretlen',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: isCurrentUser ? Colors.deepPurple[800] : Colors.grey[700],

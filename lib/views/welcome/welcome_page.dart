@@ -8,6 +8,7 @@ import '../users/users_page.dart';
 import '../games/games_page.dart';
 import '../settings/settings_page.dart';
 import '../more/more_page.dart';
+import '../chat/chat_list_page.dart';
 
 class WelcomePage extends StatefulWidget {
   final String email;
@@ -36,18 +37,19 @@ class _WelcomePageState extends State<WelcomePage>
     _pages = [
       HomePage(userEmail: widget.email),   // 0
       const CommunityPage(),               // 1
-      ProfilePage(email: widget.email),    // 2
-      const UsersPage(),                   // 3
-      const GamesPage(),                   // 4
-      const SettingsPage(),                // 5
+      const ChatListPage(),                // 2
+      ProfilePage(email: widget.email),    // 3
+      const UsersPage(),                   // 4
+      const GamesPage(),                   // 5
+      const SettingsPage(),                // 6
     ];
   }
 
   @override
   bool get wantKeepAlive => true;
 
-  // Maps page index to bottom nav bar item index (3,4,5 → "Több" = 3)
-  int get _navBarIndex => _currentIndex <= 2 ? _currentIndex : 3;
+  // Maps page index to bottom nav bar item index (4,5,6 → "Több" = 4)
+  int get _navBarIndex => _currentIndex <= 3 ? _currentIndex : 4;
 
   void _showMoreSheet() {
     final ctx = context;
@@ -59,15 +61,15 @@ class _WelcomePageState extends State<WelcomePage>
       builder: (sheetCtx) => MorePage(
         onUsersSelected: () {
           Navigator.pop(sheetCtx);
-          setState(() => _currentIndex = 3);
+          setState(() => _currentIndex = 4);
         },
         onGamesSelected: () {
           Navigator.pop(sheetCtx);
-          setState(() => _currentIndex = 4);
+          setState(() => _currentIndex = 5);
         },
         onSettingsSelected: () {
           Navigator.pop(sheetCtx);
-          setState(() => _currentIndex = 5);
+          setState(() => _currentIndex = 6);
         },
       ),
     );
@@ -88,7 +90,7 @@ class _WelcomePageState extends State<WelcomePage>
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: (index) {
-          if (index == 3) {
+          if (index == 4) {
             _showMoreSheet();
           } else {
             setState(() => _currentIndex = index);
@@ -102,6 +104,10 @@ class _WelcomePageState extends State<WelcomePage>
           BottomNavigationBarItem(
             icon: Icon(Icons.group),
             label: 'Közösség',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Üzenetek',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
