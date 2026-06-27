@@ -79,7 +79,6 @@ class _HomePageState extends State<HomePage> {
       } else {
         await postRef.update({'likes': FieldValue.arrayUnion([_currentUserId])});
 
-        // Értesítés küldése ha nem saját posztot lájkol
         if (postOwnerId != _currentUserId) {
           final senderProfile = await _profileService.getProfile(_currentUserId!);
           final senderName = senderProfile?.displayName ?? 'Valaki';
