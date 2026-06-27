@@ -7,6 +7,7 @@ import '../../services/profile_service.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/status_dot.dart';
 import 'chat_page.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -142,10 +143,21 @@ class _ChatListPageState extends State<ChatListPage> {
                             itemBuilder: (context, index) {
                               final item = items[index];
                               return ListTile(
-                                leading: ProfileAvatar(
-                                  imageUrl: item.profile?.profileImageUrl,
-                                  fallbackLetter: item.name,
-                                  radius: 24,
+                                leading: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: item.profile != null
+                                          ? StatusDot.colorFor(item.profile!.status)
+                                          : Colors.grey,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: ProfileAvatar(
+                                    imageUrl: item.profile?.profileImageUrl,
+                                    fallbackLetter: item.name,
+                                    radius: 20,
+                                  ),
                                 ),
                                 title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 subtitle: Text(

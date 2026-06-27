@@ -7,6 +7,7 @@ import '../settings/settings_page.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/status_dot.dart';
 
 class ProfilePage extends StatefulWidget {
   final String email;
@@ -239,6 +240,37 @@ class _ProfilePageState extends State<ProfilePage> {
                 Text(
                   _userProfile?.displayName ?? 'Nincs megadva név',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                // Státusz toggle
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    StatusDot(status: _userProfile?.status ?? 'offline', size: 12),
+                    const SizedBox(width: 6),
+                    Text(
+                      StatusDot.labelFor(_userProfile?.status ?? 'offline'),
+                      style: TextStyle(
+                        color: StatusDot.colorFor(_userProfile?.status ?? 'offline'),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    PopupMenuButton<String>(
+                      tooltip: 'Státusz módosítása',
+                      icon: const Icon(Icons.edit, size: 18),
+                      onSelected: (value) async {
+                        if (_currentUser != null) {
+                          await _profileService.setStatus(_currentUser!.uid, value);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'online', child: Row(children: [StatusDot(status: 'online'), const SizedBox(width: 8), const Text('Online')])),
+                        PopupMenuItem(value: 'busy', child: Row(children: [StatusDot(status: 'busy'), const SizedBox(width: 8), const Text('Elfoglalt')])),
+                        PopupMenuItem(value: 'offline', child: Row(children: [StatusDot(status: 'offline'), const SizedBox(width: 8), const Text('Offline')])),
+                      ],
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Text(

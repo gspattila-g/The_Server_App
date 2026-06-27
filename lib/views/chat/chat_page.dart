@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/chat_service.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
+import '../../widgets/status_dot.dart';
 import '../users/user_view_page.dart';
 
 /// A chat felület, ahol a felhasználók üzeneteket válthatnak egymással.
@@ -200,7 +201,38 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-          child: Text(_receiverProfile?.displayName ?? widget.receiverUserEmail),
+          child: StreamBuilder<UserProfile?>(
+            stream: _profileService.getProfileStream(widget.receiverUserId),
+            builder: (context, snapshot) {
+              final profile = snapshot.data ?? _receiverProfile;
+              final status = profile?.status ?? 'offline';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(profile?.displayName ?? widget.receiverUserEmail),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: StatusDot.colorFor(status),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        StatusDot.labelFor(status),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       body: Column(

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
+import '../../widgets/status_dot.dart';
 import '../../models/game.dart';
 import '../../services/profile_service.dart';
 import '../../services/chat_service.dart';
@@ -233,6 +234,17 @@ class _UserViewPageState extends State<UserViewPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(userProfile.displayName, style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      StatusDot(status: userProfile.status, size: 12),
+                      const SizedBox(width: 6),
+                      Text(StatusDot.labelFor(userProfile.status),
+                          style: TextStyle(color: StatusDot.colorFor(userProfile.status), fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Text(userProfile.email, style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.grey)),
                   const SizedBox(height: 16),
                   Text(userProfile.bio, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),

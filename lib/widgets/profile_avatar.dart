@@ -25,15 +25,15 @@ class ProfileAvatar extends StatelessWidget {
           : null,
       child: imageUrl == null || imageUrl!.isEmpty
           ? Text(
-        fallbackLetter?.isNotEmpty == true
-            ? fallbackLetter![0].toUpperCase()
-            : '?',
-        style: TextStyle(
-          fontSize: radius * 0.9,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.onPrimaryContainer,
-        ),
-      )
+              fallbackLetter?.isNotEmpty == true
+                  ? fallbackLetter![0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                fontSize: radius * 0.9,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            )
           : null,
     );
   }

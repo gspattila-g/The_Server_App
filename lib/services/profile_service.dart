@@ -80,6 +80,10 @@ class ProfileService {
     }
   }
 
+  Future<void> setStatus(String uid, String status) async {
+    await _firestore.collection(_collectionName).doc(uid).set({'status': status}, SetOptions(merge: true));
+  }
+
   Stream<UserProfile?> getProfileStream(String uid) {
     return _firestore.collection(_collectionName).doc(uid).snapshots().map((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {

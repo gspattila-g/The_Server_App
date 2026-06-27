@@ -5,6 +5,7 @@ class UserProfile {
   String bio;
   String favoriteGame;
   String? profileImageUrl;
+  String status; // 'online', 'offline', 'busy'
 
   UserProfile({
     required this.uid,
@@ -13,6 +14,7 @@ class UserProfile {
     this.bio = 'Nincs bemutatkozás',
     this.favoriteGame = 'Nincs kedvenc játék',
     this.profileImageUrl,
+    this.status = 'offline',
   });
 
   Map<String, dynamic> toJson() {
@@ -23,6 +25,7 @@ class UserProfile {
       'bio': bio,
       'favoriteGame': favoriteGame,
       'profileImageUrl': profileImageUrl,
+      'status': status,
     };
   }
 
@@ -37,6 +40,7 @@ class UserProfile {
           ((data['profileImagePath'] as String?)?.startsWith('http') == true
               ? data['profileImagePath'] as String?
               : null),
+      status: data['status'] as String? ?? 'offline',
     );
   }
 
@@ -56,6 +60,7 @@ class UserProfile {
     String? bio,
     String? favoriteGame,
     String? profileImageUrl,
+    String? status,
   }) {
     return UserProfile(
       uid: uid,
@@ -64,6 +69,7 @@ class UserProfile {
       bio: bio ?? this.bio,
       favoriteGame: favoriteGame ?? this.favoriteGame,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      status: status ?? this.status,
     );
   }
 }

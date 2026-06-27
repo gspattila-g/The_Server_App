@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/status_dot.dart';
 import '../chat/chat_page.dart';
 import '../users/user_view_page.dart';
 
@@ -139,13 +140,23 @@ class _CommunityPageState extends State<CommunityPage> {
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
                   elevation: 2,
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: senderProfile.profileImageUrl != null && senderProfile.profileImageUrl!.isNotEmpty
-                          ? NetworkImage(senderProfile.profileImageUrl!)
-                          : null,
-                      child: (senderProfile.profileImageUrl == null || senderProfile.profileImageUrl!.isEmpty)
-                          ? Text(senderProfile.displayName.isNotEmpty ? senderProfile.displayName[0].toUpperCase() : '?')
-                          : null,
+                    leading: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: StatusDot.colorFor(senderProfile.status),
+                          width: 3,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundImage: senderProfile.profileImageUrl != null && senderProfile.profileImageUrl!.isNotEmpty
+                            ? NetworkImage(senderProfile.profileImageUrl!)
+                            : null,
+                        child: (senderProfile.profileImageUrl == null || senderProfile.profileImageUrl!.isEmpty)
+                            ? Text(senderProfile.displayName.isNotEmpty ? senderProfile.displayName[0].toUpperCase() : '?')
+                            : null,
+                      ),
                     ),
                     title: Text('${senderProfile.displayName} barátsági kérést küldött'),
                     subtitle: Text(senderProfile.bio.isNotEmpty ? senderProfile.bio : 'Nincs bemutatkozás'),
@@ -304,17 +315,27 @@ class _CommunityPageState extends State<CommunityPage> {
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
                         elevation: 2,
                         child: ListTile(
-                          leading: CircleAvatar(
+                          leading: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: StatusDot.colorFor(friendProfile.status),
+                                width: 3,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 20,
                               backgroundImage: friendProfile.profileImageUrl != null && friendProfile.profileImageUrl!.isNotEmpty
                                   ? NetworkImage(friendProfile.profileImageUrl!)
                                   : null,
-                            child: (friendProfile.profileImageUrl == null || friendProfile.profileImageUrl!.isEmpty)
-                                ? Text(
-                              friendProfile.displayName.isNotEmpty
-                                  ? friendProfile.displayName[0].toUpperCase()
-                                  : '?',
-                            )
-                                : null,
+                              child: (friendProfile.profileImageUrl == null || friendProfile.profileImageUrl!.isEmpty)
+                                  ? Text(
+                                      friendProfile.displayName.isNotEmpty
+                                          ? friendProfile.displayName[0].toUpperCase()
+                                          : '?',
+                                    )
+                                  : null,
+                            ),
                           ),
                           title: Text(friendProfile.displayName),
                           subtitle: Text(friendProfile.bio.isNotEmpty ? friendProfile.bio : 'Nincs bemutatkozás'),

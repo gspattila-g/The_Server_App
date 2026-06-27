@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../services/fcm_service.dart';
+import '../../services/profile_service.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../community/community_page.dart';
@@ -23,32 +25,54 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
+  final _profileService = ProfileService();
 
   late final List<Widget> _pages;
+
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   @override
   void initState() {
     super.initState();
+    _pages = [
+      HomePage(userEmail: widget.email),
+      const CommunityPage(),
+      const ChatListPage(),
+      ProfilePage(email: widget.email),
+      const UsersPage(),
+      const GamesPage(),
+      const SettingsPage(),
+    ];
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FcmService.initialize(context);
+      if (_uid != null) _profileService.setStatus(_uid!, 'online');
     });
-    _pages = [
-      HomePage(userEmail: widget.email),   // 0
-      const CommunityPage(),               // 1
-      const ChatListPage(),                // 2
-      ProfilePage(email: widget.email),    // 3
-      const UsersPage(),                   // 4
-      const GamesPage(),                   // 5
-      const SettingsPage(),                // 6
-    ];
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_uid != null) _profileService.setStatus(_uid!, 'offline');
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final uid = _uid;
+    if (uid == null) return;
+    if (state == AppLifecycleState.resumed) {
+      _profileService.setStatus(uid, 'online');
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _profileService.setStatus(uid, 'offline');
+    }
   }
 
   @override
   bool get wantKeepAlive => true;
 
-  // Maps page index to bottom nav bar item index (4,5,6 → "Több" = 4)
   int get _navBarIndex => _currentIndex <= 3 ? _currentIndex : 4;
 
   void _showMoreSheet() {
@@ -97,26 +121,11 @@ class _WelcomePageState extends State<WelcomePage>
           }
         },
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Főoldal',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_alt),
-            label: 'Barátok',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: 'Üzenetek',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.more_horiz),
-            label: 'Több',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Főoldal'),
+          BottomNavigationBarItem(icon: Icon(Icons.people_alt), label: 'Barátok'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Üzenetek'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'Több'),
         ],
       ),
     );
