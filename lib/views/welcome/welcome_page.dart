@@ -102,8 +102,8 @@ class _WelcomePageState extends State<WelcomePage>
             label: 'Főoldal',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.group),
-            label: 'Közösség',
+            icon: Icon(Icons.people_alt),
+            label: 'Barátok',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),

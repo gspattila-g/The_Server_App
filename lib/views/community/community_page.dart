@@ -61,21 +61,21 @@ class _CommunityPageState extends State<CommunityPage> {
       length: 2, // Két fül: Kérések és Barátok
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Kérések és Barátok'), // Cím
-          bottom: TabBar( // Explicit színek a témához igazodva
+          title: const Text('Barátok'),
+          bottom: TabBar(
             labelColor: Theme.of(context).colorScheme.onPrimary,
             unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
             indicatorColor: Theme.of(context).colorScheme.secondary,
             tabs: const [
-              Tab(text: 'Kérések', icon: Icon(Icons.mail)),
               Tab(text: 'Barátok', icon: Icon(Icons.people_alt)),
+              Tab(text: 'Kérések', icon: Icon(Icons.mail)),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            _buildRequestsTab(), // Kérések fül tartalma
-            _buildFriendsTab(), // Barátok fül tartalma (most már kereséssel)
+            _buildFriendsTab(),
+            _buildRequestsTab(),
           ],
         ),
       ),
