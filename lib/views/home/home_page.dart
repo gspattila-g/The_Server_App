@@ -8,6 +8,7 @@ import '../../widgets/profile_avatar.dart';
 import '../home/new_post_page.dart';
 import '../../services/profile_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/notification_bell.dart';
 import '../comments/comments_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -102,6 +103,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       appBar: AppBar(
         title: const Text('Főoldal'),
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.add_box),
             tooltip: 'Új poszt',

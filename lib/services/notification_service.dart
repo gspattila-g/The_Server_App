@@ -83,6 +83,14 @@ class NotificationService {
     }
   }
 
+  Stream<int> getUnreadCountStream(String receiverId) {
+    return _notificationsCollection
+        .where('receiverId', isEqualTo: receiverId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
   /// Értesítés törlése az adatbázisból.
   ///
   /// [notificationId]: Az értesítés ID-je, amit törölni szeretnénk.

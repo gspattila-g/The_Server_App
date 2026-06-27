@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../settings/settings_page.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
+import '../../widgets/notification_bell.dart';
 
 class ProfilePage extends StatefulWidget {
   final String email;
@@ -175,6 +176,7 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         title: const Text('Profilom'),
         actions: [
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Beállítások',

@@ -4,8 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
-import '../chat/chat_page.dart'; // ChatPage importálása
-import '../users/user_view_page.dart'; // UserViewPage importálása
+import '../../widgets/notification_bell.dart';
+import '../chat/chat_page.dart';
+import '../users/user_view_page.dart';
 
 /// Egy oldal, amely kezeli a barátsági kéréseket és megjeleníti a barátlistát.
 ///
@@ -62,6 +63,7 @@ class _CommunityPageState extends State<CommunityPage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Barátok'),
+          actions: const [NotificationBell()],
           bottom: TabBar(
             labelColor: Theme.of(context).colorScheme.onPrimary,
             unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),

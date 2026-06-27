@@ -7,12 +7,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/notification.dart';
+import '../../models/user_profile.dart';
 import '../../services/notification_service.dart';
 import '../../services/profile_service.dart';
+import '../../widgets/profile_avatar.dart';
 
-/// Egy oldal, amely egy adott poszthoz tartozó kommenteket jeleníti meg és kezeli.
-///
-/// Lehetővé teszi a felhasználóknak, hogy kommenteket olvassanak és újakat adjanak hozzá.
 class CommentsPage extends StatefulWidget {
   final String postId;
   final String postMessage;
@@ -49,6 +48,35 @@ class _CommentsPageState extends State<CommentsPage> {
     super.dispose();
   }
 
+  Future<void> _toggleLike(String postId, List<dynamic> currentLikes, String postOwnerId) async {
+    if (_currentUserId == null) return;
+    try {
+      final postRef = _firestore.collection('posts').doc(postId);
+      final alreadyLiked = currentLikes.contains(_currentUserId);
+      if (alreadyLiked) {
+        await postRef.update({'likes': FieldValue.arrayRemove([_currentUserId])});
+      } else {
+        await postRef.update({'likes': FieldValue.arrayUnion([_currentUserId])});
+        if (postOwnerId != _currentUserId) {
+          final senderProfile = await _profileService.getProfile(_currentUserId!);
+          final senderName = senderProfile?.displayName ?? 'Valaki';
+          await _notificationService.addNotification(AppNotification(
+            senderId: _currentUserId!,
+            receiverId: postOwnerId,
+            type: 'like',
+            message: '$senderName lájkolta a posztodat.',
+            eventId: postId,
+            timestamp: Timestamp.now(),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hiba: $e')));
+      }
+    }
+  }
+
   Future<void> _pickImage() async {
     try {
       final XFile? picked = await _picker.pickImage(
@@ -72,10 +100,7 @@ class _CommentsPageState extends State<CommentsPage> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.jpg';
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('comment_images')
-        .child(fileName);
+    final ref = FirebaseStorage.instance.ref().child('comment_images').child(fileName);
     await ref.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
     return await ref.getDownloadURL();
   }
@@ -121,7 +146,6 @@ class _CommentsPageState extends State<CommentsPage> {
       _commentController.clear();
       setState(() => _selectedImage = null);
 
-      // Értesítés küldése ha nem saját posztjára kommentel
       if (widget.postSenderId != _currentUserId) {
         await _notificationService.addNotification(AppNotification(
           senderId: _currentUserId!,
@@ -143,6 +167,102 @@ class _CommentsPageState extends State<CommentsPage> {
     }
   }
 
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    if (difference.inSeconds < 60) return 'néhány másodperce';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} perce';
+    if (difference.inHours < 24) return '${difference.inHours} órája';
+    return '${date.year}.${date.month}.${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildPostCard(Map<String, dynamic> data) {
+    final likes = data['likes'] as List<dynamic>? ?? [];
+    final isLiked = likes.contains(_currentUserId);
+    final imageUrl = data['imageUrl'] as String?;
+    final message = data['message'] as String? ?? widget.postMessage;
+    final senderId = data['senderId'] as String? ?? widget.postSenderId;
+    final senderDisplayName = data['senderDisplayName'] as String? ?? widget.postSenderDisplayName;
+    final timestamp = data['timestamp'] as Timestamp?;
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FutureBuilder<UserProfile?>(
+              future: _profileService.getProfile(senderId),
+              builder: (context, profileSnap) {
+                final displayName = profileSnap.data?.displayName ?? senderDisplayName;
+                final profileImageUrl = profileSnap.data?.profileImageUrl;
+                return Row(
+                  children: [
+                    ProfileAvatar(
+                      imageUrl: profileImageUrl,
+                      fallbackLetter: displayName,
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          if (timestamp != null)
+                            Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            if (message.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(message, style: const TextStyle(fontSize: 16)),
+            ],
+            if (imageUrl != null && imageUrl.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    height: 60,
+                    child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: isLiked ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: () => _toggleLike(widget.postId, likes, senderId),
+                ),
+                Text('${likes.length} lájk', style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCommentItem(Map<String, dynamic> commentData) {
     final String senderDisplayName = commentData['senderDisplayName'] ?? 'Ismeretlen';
     final String commentText = commentData['commentText'] ?? '';
@@ -150,7 +270,7 @@ class _CommentsPageState extends State<CommentsPage> {
     final Timestamp? timestamp = commentData['timestamp'] as Timestamp?;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(10.0),
@@ -159,15 +279,9 @@ class _CommentsPageState extends State<CommentsPage> {
           children: [
             Row(
               children: [
-                Text(
-                  senderDisplayName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
+                Text(senderDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(width: 8),
-                Text(
-                  _formatTimestamp(timestamp),
-                  style: const TextStyle(color: Colors.grey, fontSize: 10),
-                ),
+                Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 10)),
               ],
             ),
             if (commentText.isNotEmpty) ...[
@@ -184,10 +298,7 @@ class _CommentsPageState extends State<CommentsPage> {
                   fit: BoxFit.cover,
                   loadingBuilder: (_, child, progress) => progress == null
                       ? child
-                      : const SizedBox(
-                          height: 120,
-                          child: Center(child: CircularProgressIndicator()),
-                        ),
+                      : const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
                   errorBuilder: (_, __, ___) => const SizedBox(
                     height: 60,
                     child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
@@ -201,90 +312,55 @@ class _CommentsPageState extends State<CommentsPage> {
     );
   }
 
-  /// Időbélyeg formázása olvasható stringgé.
-  String _formatTimestamp(Timestamp? timestamp) {
-    if (timestamp == null) return 'ismeretlen időpont';
-    final date = timestamp.toDate();
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inSeconds < 60) return 'néhány másodperce';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} perce';
-    if (difference.inHours < 24) return '${difference.inHours} órája';
-    return '${date.year}.${date.month}.${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_currentUserId == null) {
-      // Itt a Scaffold nem lehet 'const', mert a benne lévő AppBar sem 'const'.
-      // Ezért eltávolítottuk a 'const' kulcsszót a 'Scaffold' elől.
-      return Scaffold( // <<< EZT MÓDOSÍTOTTAM! ELTÁVOLÍTOTTAM A 'const' KULCSSZÓT A SCAFFOLD ELŐL!
-        appBar: AppBar(title: const Text('Kommentek')), // Az AppBar címe lehet 'const Text'
+      return Scaffold(
+        appBar: AppBar(title: const Text('Poszt')),
         body: const Center(child: Text('Hiba: Nincs bejelentkezett felhasználó.')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kommentek'),
-        bottom: PreferredSize( // A poszt üzenetének megjelenítése az AppBar alatt
-          preferredSize: const Size.fromHeight(kToolbarHeight + 20), // Növelt magasság
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${widget.postSenderDisplayName} posztja:',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-                Text(
-                  widget.postMessage,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Poszt')),
       body: Column(
         children: [
+          // Post card (real-time: like frissül azonnal)
+          StreamBuilder<DocumentSnapshot>(
+            stream: _firestore.collection('posts').doc(widget.postId).snapshots(),
+            builder: (context, postSnap) {
+              if (!postSnap.hasData || !postSnap.data!.exists) {
+                return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+              }
+              final data = postSnap.data!.data() as Map<String, dynamic>;
+              return _buildPostCard(data);
+            },
+          ),
+          const Divider(height: 1),
           // Kommentek listája
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              // Lekérdezzük az adott poszt kommentjeit, időbélyeg szerint rendezve
               stream: _firestore
                   .collection('posts')
                   .doc(widget.postId)
                   .collection('comments')
-                  .orderBy('timestamp', descending: true) // Legújabb kommentek felül
+                  .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text('Hiba a kommentek betöltésekor: ${snapshot.error}'));
+                  return Center(child: Text('Hiba: ${snapshot.error}'));
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(child: Text('Még nincs komment. Légy te az első!'));
                 }
-
-                final comments = snapshot.data!.docs;
-
                 return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: comments.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    final commentData = comments[index].data() as Map<String, dynamic>;
+                    final commentData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
                     return _buildCommentItem(commentData);
                   },
                 );
@@ -312,10 +388,7 @@ class _CommentsPageState extends State<CommentsPage> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedImage = null),
                       child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                         padding: const EdgeInsets.all(4),
                         child: const Icon(Icons.close, color: Colors.white, size: 16),
                       ),
@@ -324,7 +397,7 @@ class _CommentsPageState extends State<CommentsPage> {
                 ],
               ),
             ),
-          // Komment beviteli mező és gombok
+          // Komment beviteli mező
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -340,20 +413,14 @@ class _CommentsPageState extends State<CommentsPage> {
                     enabled: !_isSending,
                     decoration: InputDecoration(
                       hintText: 'Írj kommentet...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 _isSending
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                     : IconButton(
                         onPressed: _addComment,
                         icon: const Icon(Icons.send),

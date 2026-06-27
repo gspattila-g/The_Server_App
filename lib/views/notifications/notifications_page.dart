@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../services/notification_service.dart'; // Értesítési szolgáltatás
-import '../../models/notification.dart'; // AppNotification modell
-import '../../services/profile_service.dart'; // Profil szolgáltatás a felhasználó nevének lekéréséhez
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../services/notification_service.dart';
+import '../../models/notification.dart';
+import '../../services/profile_service.dart';
+import '../comments/comments_page.dart';
+import '../chat/chat_page.dart';
 
 /// Értesítések oldal widgetje.
 ///
@@ -128,16 +132,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ],
                       ),
                       onTap: () {
-                        // Ha olvasatlan, jelöljük olvasottként kattintáskor
                         if (!notification.isRead) {
                           _notificationService.markNotificationAsRead(notification.id!);
                         }
-                        // Itt lehetne navigálni az értesítés típusától függően
-                        // pl. friend_request -> CommunityPage
-                        // message -> ChatPage
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Értesítés megnyitva: ${notification.message}')),
-                        );
+                        _navigateTo(context, notification);
                       },
                     ),
                   );
@@ -148,6 +146,37 @@ class _NotificationsPageState extends State<NotificationsPage> {
         },
       ),
     );
+  }
+
+  Future<void> _navigateTo(BuildContext context, AppNotification notification) async {
+    final type = notification.type;
+    final eventId = notification.eventId ?? '';
+
+    if (type == 'like' || type == 'post_like' || type == 'comment') {
+      if (eventId.isEmpty) return;
+      try {
+        final postDoc = await FirebaseFirestore.instance.collection('posts').doc(eventId).get();
+        if (!postDoc.exists || !context.mounted) return;
+        final data = postDoc.data()!;
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => CommentsPage(
+            postId: eventId,
+            postMessage: data['message'] as String? ?? '',
+            postSenderId: data['senderId'] as String? ?? '',
+            postSenderDisplayName: data['senderDisplayName'] as String? ?? '',
+          ),
+        ));
+      } catch (_) {}
+    } else if (type == 'message') {
+      final profile = await _profileService.getProfile(notification.senderId);
+      if (!context.mounted) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatPage(
+          receiverUserId: notification.senderId,
+          receiverUserEmail: profile?.email ?? '',
+        ),
+      ));
+    }
   }
 
   /// Segédmetódus az értesítés típusához tartozó ikon visszaadására.

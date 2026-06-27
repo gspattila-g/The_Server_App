@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/settings_provider.dart'; // <<< JAVÍTVA: Relatív útvonal a providers mappához
+import '../../providers/settings_provider.dart';
+import '../../widgets/notification_bell.dart';
 
 /// A beállítások oldal widgetje.
 ///
@@ -18,6 +19,7 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Beállítások'),
+        actions: const [NotificationBell()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

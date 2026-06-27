@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore importálása
 import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth a jelenlegi felhasználó UID-jének lekérdezéséhez
 
-import '../../models/user_profile.dart'; // UserProfile modell importálása
+import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
-import '../../models/game.dart'; // Game modell importálása
-import '../../services/chat_service.dart'; // Importáljuk a ChatService-t a navigációhoz
-import '../../services/game_service.dart'; // Importáljuk a GameService-t
-import '../chat/chat_page.dart'; // Importáljuk a ChatPage-et a navigációhoz
-import '../users/user_view_page.dart'; // Importáljuk a UserViewPage-et a profilnézethez
+import '../../widgets/notification_bell.dart';
+import '../../models/game.dart';
+import '../../services/chat_service.dart';
+import '../../services/game_service.dart';
+import '../chat/chat_page.dart';
+import '../users/user_view_page.dart';
 
 /// Egy oldal, amely listázza az összes felhasználót az alkalmazásban (a jelenlegi kivételével).
 ///
@@ -332,6 +333,7 @@ class _UsersPageState extends State<UsersPage> {
       appBar: AppBar(
         title: const Text('Felhasználók'),
         actions: [
+          const NotificationBell(),
           // Kapcsoló a közös játékok szűréséhez
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),

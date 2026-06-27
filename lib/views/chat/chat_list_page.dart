@@ -6,6 +6,7 @@ import '../../services/chat_service.dart';
 import '../../services/profile_service.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/profile_avatar.dart';
+import '../../widgets/notification_bell.dart';
 import 'chat_page.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -52,7 +53,7 @@ class _ChatListPageState extends State<ChatListPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Üzenetek')),
+      appBar: AppBar(title: const Text('Üzenetek'), actions: const [NotificationBell()]),
       body: !_backfillDone
           ? const Center(child: CircularProgressIndicator())
           : Column(

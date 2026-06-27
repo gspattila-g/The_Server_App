@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth importálása
 
 import '../../models/game.dart';
 import '../../services/game_service.dart';
+import '../../widgets/notification_bell.dart';
 
 /// A Játék Könyvtár oldal widgetje.
 ///
@@ -320,6 +321,7 @@ class _GamesPageState extends State<GamesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Játék könyvtár'),
+        actions: const [NotificationBell()],
       ),
       body: StreamBuilder<List<Game>>(
         stream: _gameService.getGamesStreamForUser(currentUserId),
