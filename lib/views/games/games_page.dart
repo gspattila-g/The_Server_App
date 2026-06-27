@@ -17,20 +17,55 @@ class GamesPage extends StatefulWidget {
   State<GamesPage> createState() => _GamesPageState();
 }
 
+// Előre definiált játék adatstruktúra
+class _PreDefinedGame {
+  final String name;
+  final String genre;
+  final String platform;
+  const _PreDefinedGame(this.name, this.genre, this.platform);
+}
+
 class _GamesPageState extends State<GamesPage> {
   final GameService _gameService = GameService();
   final TextEditingController _gameNameController = TextEditingController();
   final TextEditingController _gameGenreController = TextEditingController();
   final TextEditingController _gamePlatformController = TextEditingController();
 
-  String _selectedStatus = 'wishlist'; // Alapértelmezett állapot az új játékokhoz
+  String _selectedStatus = 'wishlist';
 
-  // Lehetséges játékstátuszok listája
+  static const List<_PreDefinedGame> _preDefinedGames = [
+    _PreDefinedGame('Minecraft', 'Sandbox', 'PC / Console / Mobile'),
+    _PreDefinedGame('Fortnite', 'Battle Royale', 'PC / Console / Mobile'),
+    _PreDefinedGame('League of Legends', 'MOBA', 'PC'),
+    _PreDefinedGame('Counter-Strike 2', 'FPS', 'PC'),
+    _PreDefinedGame('Valorant', 'FPS', 'PC'),
+    _PreDefinedGame('Dota 2', 'MOBA', 'PC'),
+    _PreDefinedGame('Grand Theft Auto V', 'Action-Adventure', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('Red Dead Redemption 2', 'Action-Adventure', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('The Witcher 3', 'RPG', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('Cyberpunk 2077', 'RPG', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('Elden Ring', 'RPG', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('Baldur\'s Gate 3', 'RPG', 'PC / PlayStation'),
+    _PreDefinedGame('Diablo IV', 'RPG', 'PC / Console'),
+    _PreDefinedGame('Dark Souls III', 'RPG', 'PC / PlayStation / Xbox'),
+    _PreDefinedGame('Hades', 'Roguelike', 'PC / Console'),
+    _PreDefinedGame('Hollow Knight', 'Metroidvania', 'PC / Console'),
+    _PreDefinedGame('God of War', 'Action-Adventure', 'PlayStation / PC'),
+    _PreDefinedGame('The Last of Us', 'Action-Adventure', 'PlayStation / PC'),
+    _PreDefinedGame('Apex Legends', 'Battle Royale', 'PC / Console'),
+    _PreDefinedGame('Call of Duty: Warzone', 'FPS', 'PC / Console'),
+    _PreDefinedGame('Overwatch 2', 'FPS', 'PC / Console'),
+    _PreDefinedGame('Rocket League', 'Sports', 'PC / Console'),
+    _PreDefinedGame('EA Sports FC 24', 'Sports', 'PC / Console'),
+    _PreDefinedGame('Stardew Valley', 'Simulation', 'PC / Console / Mobile'),
+    _PreDefinedGame('Among Us', 'Social Deduction', 'PC / Mobile'),
+  ];
+
   final List<String> _gameStatuses = [
-    'wishlist', // Kívánságlista
-    'playing',  // Játszom
-    'completed',// Befejezett
-    'dropped',  // Abbahagytam
+    'wishlist',
+    'playing',
+    'completed',
+    'dropped',
   ];
 
   @override
@@ -43,31 +78,74 @@ class _GamesPageState extends State<GamesPage> {
 
   /// Új játék hozzáadása dialógus megjelenítése.
   Future<void> _addGame() async {
-    // Reset the text controllers and selected status for the new game dialog
     _gameNameController.clear();
     _gameGenreController.clear();
     _gamePlatformController.clear();
-    _selectedStatus = 'wishlist'; // Default status for new game
+    _selectedStatus = 'wishlist';
+    _PreDefinedGame? selectedPreDefined;
 
     return showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder( // Use StatefulBuilder to update dialog content
+        return StatefulBuilder(
           builder: (context, setStateInDialog) {
+            final bool isManual = selectedPreDefined == null;
+
             return AlertDialog(
               title: const Text('Új játék hozzáadása'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Játék kiválasztó dropdown
+                    DropdownButtonFormField<_PreDefinedGame?>(
+                      value: selectedPreDefined,
+                      decoration: const InputDecoration(labelText: 'Játék kiválasztása'),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<_PreDefinedGame?>(
+                          value: null,
+                          child: Text('✏️ Manuális (saját)'),
+                        ),
+                        ..._preDefinedGames.map((game) => DropdownMenuItem<_PreDefinedGame?>(
+                              value: game,
+                              child: Text(game.name),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setStateInDialog(() {
+                          selectedPreDefined = value;
+                          if (value != null) {
+                            _gameNameController.text = value.name;
+                            _gameGenreController.text = value.genre;
+                            _gamePlatformController.text = value.platform;
+                          } else {
+                            _gameNameController.clear();
+                            _gameGenreController.clear();
+                            _gamePlatformController.clear();
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _gameNameController,
-                      decoration: const InputDecoration(labelText: 'Játék neve'),
+                      enabled: isManual,
+                      decoration: InputDecoration(
+                        labelText: 'Játék neve',
+                        filled: !isManual,
+                        fillColor: isManual ? null : Colors.grey[100],
+                      ),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _gameGenreController,
-                      decoration: const InputDecoration(labelText: 'Műfaj'),
+                      enabled: isManual,
+                      decoration: InputDecoration(
+                        labelText: 'Műfaj',
+                        filled: !isManual,
+                        fillColor: isManual ? null : Colors.grey[100],
+                      ),
                     ),
                     const SizedBox(height: 10),
                     TextField(
@@ -96,16 +174,14 @@ class _GamesPageState extends State<GamesPage> {
               actions: <Widget>[
                 TextButton(
                   child: const Text('Mégse'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
                   child: const Text('Hozzáadás'),
                   onPressed: () async {
                     if (_gameNameController.text.isNotEmpty) {
                       final newGame = Game(
-                        id: '', // ID will be set by Firestore
+                        id: '',
                         name: _gameNameController.text.trim(),
                         genre: _gameGenreController.text.trim().isEmpty ? 'Ismeretlen' : _gameGenreController.text.trim(),
                         platform: _gamePlatformController.text.trim().isEmpty ? 'Ismeretlen' : _gamePlatformController.text.trim(),
