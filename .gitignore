@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local archives and backups
+*.rar
+*.zip
+
+# Old project copy
+The_Server_App/
