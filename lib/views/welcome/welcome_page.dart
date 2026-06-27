@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/fcm_service.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../community/community_page.dart';
@@ -29,6 +30,9 @@ class _WelcomePageState extends State<WelcomePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FcmService.initialize(context);
+    });
     _pages = [
       HomePage(userEmail: widget.email),   // 0
       const CommunityPage(),               // 1

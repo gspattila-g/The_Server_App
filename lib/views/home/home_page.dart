@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
+import '../../models/notification.dart';
 import '../../widgets/profile_avatar.dart';
 
 import '../home/new_post_page.dart';
 import '../../services/profile_service.dart';
+import '../../services/notification_service.dart';
 import '../comments/comments_page.dart';
 
 /// A főoldal, amely megjeleníti a felhasználók posztjait.
@@ -23,6 +25,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ProfileService _profileService = ProfileService();
+  final NotificationService _notificationService = NotificationService();
   final Map<String, UserProfile> _profileCache = {};
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -59,7 +62,7 @@ class _HomePageState extends State<HomePage> {
   /// Kezeli a lájkolást/nem lájkolást egy poszton.
   ///
   /// Frissíti a 'likes' tömböt a Firestore-ban.
-  Future<void> _toggleLike(String postId, List<dynamic> currentLikes) async {
+  Future<void> _toggleLike(String postId, List<dynamic> currentLikes, String postOwnerId) async {
     if (_currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hiba: Be kell jelentkezni a lájkoláshoz.')),
@@ -69,17 +72,26 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final postRef = _firestore.collection('posts').doc(postId);
+      final alreadyLiked = currentLikes.contains(_currentUserId);
 
-      if (currentLikes.contains(_currentUserId)) {
-        // Ha már lájkolta, távolítsuk el a lájkot
-        await postRef.update({
-          'likes': FieldValue.arrayRemove([_currentUserId])
-        });
+      if (alreadyLiked) {
+        await postRef.update({'likes': FieldValue.arrayRemove([_currentUserId])});
       } else {
-        // Ha még nem lájkolta, adjuk hozzá a lájkot
-        await postRef.update({
-          'likes': FieldValue.arrayUnion([_currentUserId])
-        });
+        await postRef.update({'likes': FieldValue.arrayUnion([_currentUserId])});
+
+        // Értesítés küldése ha nem saját posztot lájkol
+        if (postOwnerId != _currentUserId) {
+          final senderProfile = await _profileService.getProfile(_currentUserId!);
+          final senderName = senderProfile?.displayName ?? 'Valaki';
+          await _notificationService.addNotification(AppNotification(
+            senderId: _currentUserId!,
+            receiverId: postOwnerId,
+            type: 'like',
+            message: '$senderName lájkolta a posztodat.',
+            eventId: postId,
+            timestamp: Timestamp.now(),
+          ));
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,7 +270,7 @@ class _HomePageState extends State<HomePage> {
                             isLikedByCurrentUser ? Icons.favorite : Icons.favorite_border,
                             color: isLikedByCurrentUser ? Colors.red : Colors.grey,
                           ),
-                          onPressed: () => _toggleLike(postId, likes), // Átadjuk a tényleges 'likes' listát
+                          onPressed: () => _toggleLike(postId, likes, senderId),
                         ),
                         Text('${likes.length} lájk', style: const TextStyle(fontSize: 14)),
                         const SizedBox(width: 20),
@@ -273,6 +285,7 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => CommentsPage(
                                   postId: postId,
                                   postMessage: message,
+                                  postSenderId: senderId,
                                   postSenderDisplayName: userDisplayName,
                                 ),
                               ),

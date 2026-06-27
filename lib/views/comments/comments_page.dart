@@ -6,20 +6,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../services/profile_service.dart'; // A kommentelő displayName-ének lekéréséhez
+import '../../models/notification.dart';
+import '../../services/notification_service.dart';
+import '../../services/profile_service.dart';
 
 /// Egy oldal, amely egy adott poszthoz tartozó kommenteket jeleníti meg és kezeli.
 ///
 /// Lehetővé teszi a felhasználóknak, hogy kommenteket olvassanak és újakat adjanak hozzá.
 class CommentsPage extends StatefulWidget {
-  final String postId; // Annak a posztnak az ID-je, amelyhez a kommentek tartoznak
-  final String postMessage; // A poszt üzenete (a fejlécben való megjelenítéshez)
-  final String postSenderDisplayName; // A posztoló neve (a fejlécben való megjelenítéshez)
+  final String postId;
+  final String postMessage;
+  final String postSenderId;
+  final String postSenderDisplayName;
 
   const CommentsPage({
     super.key,
     required this.postId,
     required this.postMessage,
+    required this.postSenderId,
     required this.postSenderDisplayName,
   });
 
@@ -31,6 +35,7 @@ class _CommentsPageState extends State<CommentsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _commentController = TextEditingController();
   final ProfileService _profileService = ProfileService();
+  final NotificationService _notificationService = NotificationService();
   final ImagePicker _picker = ImagePicker();
 
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -115,6 +120,18 @@ class _CommentsPageState extends State<CommentsPage> {
 
       _commentController.clear();
       setState(() => _selectedImage = null);
+
+      // Értesítés küldése ha nem saját posztjára kommentel
+      if (widget.postSenderId != _currentUserId) {
+        await _notificationService.addNotification(AppNotification(
+          senderId: _currentUserId!,
+          receiverId: widget.postSenderId,
+          type: 'comment',
+          message: '$senderDisplayName kommentelt a posztodra.',
+          eventId: widget.postId,
+          timestamp: Timestamp.now(),
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
