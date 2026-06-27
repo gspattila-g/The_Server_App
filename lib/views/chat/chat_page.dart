@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../services/chat_service.dart'; // Importáljuk a ChatService-t
-import '../../models/user_profile.dart'; // Importáljuk a UserProfile modellt
-import '../../services/profile_service.dart'; // Importáljuk a ProfileService-t (a felhasználó nevének lekérdezéséhez)
+import '../../services/chat_service.dart';
+import '../../models/user_profile.dart';
+import '../../services/profile_service.dart';
+import '../users/user_view_page.dart';
 
 /// A chat felület, ahol a felhasználók üzeneteket válthatnak egymással.
 ///
@@ -189,8 +190,18 @@ class _ChatPageState extends State<ChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        // Cím a fogadó felhasználó megjelenítendő nevével, ha elérhető
-        title: Text(_receiverProfile?.displayName ?? widget.receiverUserEmail),
+        title: GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserViewPage(
+                userId: widget.receiverUserId,
+                userEmail: widget.receiverUserEmail,
+              ),
+            ),
+          ),
+          child: Text(_receiverProfile?.displayName ?? widget.receiverUserEmail),
+        ),
       ),
       body: Column(
         children: [

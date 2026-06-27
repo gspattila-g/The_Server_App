@@ -11,6 +11,7 @@ import '../../models/user_profile.dart';
 import '../../services/notification_service.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/profile_avatar.dart';
+import '../users/user_view_page.dart';
 
 class CommentsPage extends StatefulWidget {
   final String postId;
@@ -200,25 +201,36 @@ class _CommentsPageState extends State<CommentsPage> {
               builder: (context, profileSnap) {
                 final displayName = profileSnap.data?.displayName ?? senderDisplayName;
                 final profileImageUrl = profileSnap.data?.profileImageUrl;
-                return Row(
-                  children: [
-                    ProfileAvatar(
-                      imageUrl: profileImageUrl,
-                      fallbackLetter: displayName,
-                      radius: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          if (timestamp != null)
-                            Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
+                final email = profileSnap.data?.email ?? '';
+                return GestureDetector(
+                  onTap: senderId != _currentUserId
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserViewPage(userId: senderId, userEmail: email),
+                            ),
+                          )
+                      : null,
+                  child: Row(
+                    children: [
+                      ProfileAvatar(
+                        imageUrl: profileImageUrl,
+                        fallbackLetter: displayName,
+                        radius: 20,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            if (timestamp != null)
+                              Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -265,6 +277,7 @@ class _CommentsPageState extends State<CommentsPage> {
 
   Widget _buildCommentItem(Map<String, dynamic> commentData) {
     final String senderDisplayName = commentData['senderDisplayName'] ?? 'Ismeretlen';
+    final String senderId = commentData['senderId'] as String? ?? '';
     final String commentText = commentData['commentText'] ?? '';
     final String? imageUrl = commentData['imageUrl'] as String?;
     final Timestamp? timestamp = commentData['timestamp'] as Timestamp?;
@@ -277,12 +290,30 @@ class _CommentsPageState extends State<CommentsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(senderDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(width: 8),
-                Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-              ],
+            GestureDetector(
+              onTap: senderId.isNotEmpty && senderId != _currentUserId
+                  ? () async {
+                      final profile = await _profileService.getProfile(senderId);
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserViewPage(
+                              userId: senderId,
+                              userEmail: profile?.email ?? '',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+              child: Row(
+                children: [
+                  Text(senderDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(width: 8),
+                  Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                ],
+              ),
             ),
             if (commentText.isNotEmpty) ...[
               const SizedBox(height: 4),

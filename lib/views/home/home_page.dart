@@ -10,6 +10,7 @@ import '../../services/profile_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/notification_bell.dart';
 import '../comments/comments_page.dart';
+import '../users/user_view_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userEmail;
@@ -395,20 +396,33 @@ class _PostCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        ProfileAvatar(imageUrl: profileImageUrl, fallbackLetter: displayName, radius: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
+                    GestureDetector(
+                      onTap: senderId != currentUserId
+                          ? () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => UserViewPage(
+                                    userId: senderId,
+                                    userEmail: profileSnap.data?.email ?? '',
+                                  ),
+                                ),
+                              )
+                          : null,
+                      child: Row(
+                        children: [
+                          ProfileAvatar(imageUrl: profileImageUrl, fallbackLetter: displayName, radius: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (message.isNotEmpty) Text(message, style: const TextStyle(fontSize: 16)),
