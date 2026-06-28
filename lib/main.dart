@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'views/auth/login_page.dart';
 import 'views/welcome/welcome_page.dart';
+import 'views/splash/splash_page.dart';
 import 'firebase_options.dart';
 import 'providers/settings_provider.dart';
 
@@ -222,7 +223,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
       themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const AuthWrapper(),
+      home: const SplashPage(),
     );
   }
 }
