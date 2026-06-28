@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../settings/settings_page.dart';
 import '../../models/user_profile.dart';
@@ -134,6 +135,16 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       }
     }
+  }
+
+  String _formatTimestamp(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inSeconds < 60) return 'néhány másodperce';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} perce';
+    if (diff.inHours < 24) return '${diff.inHours} órája';
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 
   Widget _buildProfileAvatar() {
@@ -315,6 +326,74 @@ class _ProfilePageState extends State<ProfilePage> {
                     minimumSize: const Size(160, 50),
                   ),
                   child: const Text('Kijelentkezés'),
+                ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Posztjaim', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 12),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('posts')
+                      .where('senderId', isEqualTo: _currentUser!.uid)
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
+                  builder: (context, postSnap) {
+                    if (postSnap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!postSnap.hasData || postSnap.data!.docs.isEmpty) {
+                      return const Text('Még nincs posztod.', style: TextStyle(color: Colors.grey));
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: postSnap.data!.docs.length,
+                      itemBuilder: (context, i) {
+                        final doc = postSnap.data!.docs[i];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final message = data['message'] as String? ?? '';
+                        final imageUrl = data['imageUrl'] as String?;
+                        final timestamp = data['timestamp'] as Timestamp?;
+                        final likes = (data['likes'] as List?)?.length ?? 0;
+                        final dateStr = timestamp != null
+                            ? _formatTimestamp(timestamp)
+                            : '';
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (message.isNotEmpty)
+                                  Text(message, style: const TextStyle(fontSize: 15)),
+                                if (imageUrl != null) ...[
+                                  const SizedBox(height: 8),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
+                                  ),
+                                ],
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.favorite_border, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text('$likes lájk', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                    const Spacer(),
+                                    Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),
