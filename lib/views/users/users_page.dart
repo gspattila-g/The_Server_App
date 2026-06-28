@@ -365,8 +365,17 @@ class _UsersPageState extends State<UsersPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Keresés felhasználók között...',
+                hintText: 'Keresés név, email vagy játék alapján...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -392,16 +401,13 @@ class _UsersPageState extends State<UsersPage> {
                   return UserProfile.fromFirestore(doc.data() as Map<String, dynamic>);
                 }).toList();
 
-                // Itt szűrjük a felhasználókat a keresési lekérdezés és a saját felhasználónk kizárása alapján.
-                final filteredUserProfiles = allUserProfiles.where((userProfile) {
-                  return userProfile.uid != _currentUserId &&
-                      (userProfile.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                          userProfile.email.toLowerCase().contains(_searchQuery.toLowerCase()));
-                }).toList();
+                // Saját profil kizárása — a keresési szűrést lentebb, a játékadatokkal együtt végezzük
+                final filteredUserProfiles = allUserProfiles
+                    .where((u) => u.uid != _currentUserId)
+                    .toList();
 
-
-                if (filteredUserProfiles.isEmpty && !_showCommonGamesOnly) {
-                  return const Center(child: Text('Nincsenek találatok a keresési feltétel alapján.'));
+                if (filteredUserProfiles.isEmpty) {
+                  return const Center(child: Text('Nincsenek felhasználók.'));
                 }
 
                 return ListView.builder(
@@ -425,7 +431,14 @@ class _UsersPageState extends State<UsersPage> {
                         final otherUserGames = otherUserGamesSnapshot.data ?? [];
                         final commonGames = _findCommonGames(_currentUserGames, otherUserGames);
 
-                        // Ha a szűrő aktív és nincsenek közös játékok, akkor elrejtjük ezt a felhasználót.
+                        final q = _searchQuery.toLowerCase();
+                        final nameMatch = q.isEmpty ||
+                            userProfile.displayName.toLowerCase().contains(q) ||
+                            userProfile.email.toLowerCase().contains(q);
+                        final gameMatch = q.isNotEmpty &&
+                            otherUserGames.any((g) => g.name.toLowerCase().contains(q));
+
+                        if (!nameMatch && !gameMatch) return const SizedBox.shrink();
                         if (_showCommonGamesOnly && commonGames.isEmpty) {
                           return const SizedBox.shrink();
                         }
