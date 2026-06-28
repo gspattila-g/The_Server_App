@@ -409,16 +409,19 @@ class _PostList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: posts.length,
-      itemBuilder: (context, index) => _PostCard(
-        post: posts[index],
-        currentUserId: currentUserId,
-        firestore: firestore,
-        profileCache: profileCache,
-        profileService: profileService,
-        onToggleLike: onToggleLike,
+    return RefreshIndicator(
+      onRefresh: () async {},
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: posts.length,
+        itemBuilder: (context, index) => _PostCard(
+          post: posts[index],
+          currentUserId: currentUserId,
+          firestore: firestore,
+          profileCache: profileCache,
+          profileService: profileService,
+          onToggleLike: onToggleLike,
+        ),
       ),
     );
   }
