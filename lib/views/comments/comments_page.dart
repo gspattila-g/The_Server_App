@@ -168,6 +168,188 @@ class _CommentsPageState extends State<CommentsPage> {
     }
   }
 
+  Future<void> _deleteComment(String commentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Komment törlése'),
+        content: const Text('Biztosan törlöd ezt a kommentet?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Törlés'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _firestore
+          .collection('posts')
+          .doc(widget.postId)
+          .collection('comments')
+          .doc(commentId)
+          .delete();
+    }
+  }
+
+  Future<void> _editComment(String commentId, String currentText, String? currentImageUrl) async {
+    final controller = TextEditingController(text: currentText);
+    File? newImage;
+    bool removeExisting = false;
+    bool isUploading = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final bool showExisting = currentImageUrl != null && !removeExisting && newImage == null;
+          final bool hasImage = showExisting || newImage != null;
+
+          Future<void> pickImage() async {
+            await showModalBottomSheet(
+              context: ctx,
+              builder: (_) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.photo_library),
+                      title: const Text('Galéria'),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1080);
+                        if (picked != null) setDialogState(() { newImage = File(picked.path); removeExisting = false; });
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.camera_alt),
+                      title: const Text('Kamera'),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1080);
+                        if (picked != null) setDialogState(() { newImage = File(picked.path); removeExisting = false; });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Komment szerkesztése'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Komment szövege...',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (newImage != null) ...[
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(newImage!, height: 150, fit: BoxFit.cover),
+                        ),
+                        Positioned(
+                          top: 4, right: 4,
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() => newImage = null),
+                            child: Container(
+                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(Icons.close, color: Colors.white, size: 18),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ] else if (showExisting) ...[
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(currentImageUrl!, height: 150, fit: BoxFit.cover),
+                        ),
+                        Positioned(
+                          top: 4, right: 4,
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() => removeExisting = true),
+                            child: Container(
+                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(Icons.close, color: Colors.white, size: 18),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: isUploading ? null : pickImage,
+                    icon: const Icon(Icons.image),
+                    label: Text(hasImage ? 'Kép cseréje' : 'Kép hozzáadása'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: isUploading ? null : () => Navigator.pop(ctx), child: const Text('Mégse')),
+              if (isUploading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else
+                ElevatedButton(
+                  onPressed: () async {
+                    final newText = controller.text.trim();
+                    setDialogState(() => isUploading = true);
+                    try {
+                      String? finalImageUrl;
+                      if (newImage != null) {
+                        finalImageUrl = await _uploadImage(newImage!);
+                      } else if (removeExisting) {
+                        finalImageUrl = null;
+                      } else {
+                        finalImageUrl = currentImageUrl;
+                      }
+                      await _firestore
+                          .collection('posts')
+                          .doc(widget.postId)
+                          .collection('comments')
+                          .doc(commentId)
+                          .update({'commentText': newText, 'imageUrl': finalImageUrl});
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      setDialogState(() => isUploading = false);
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Hiba: $e')));
+                      }
+                    }
+                  },
+                  child: const Text('Mentés'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+  }
+
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final date = timestamp.toDate();
@@ -275,12 +457,13 @@ class _CommentsPageState extends State<CommentsPage> {
     );
   }
 
-  Widget _buildCommentItem(Map<String, dynamic> commentData) {
+  Widget _buildCommentItem(Map<String, dynamic> commentData, String commentId) {
     final String senderDisplayName = commentData['senderDisplayName'] ?? 'Ismeretlen';
     final String senderId = commentData['senderId'] as String? ?? '';
     final String commentText = commentData['commentText'] ?? '';
     final String? imageUrl = commentData['imageUrl'] as String?;
     final Timestamp? timestamp = commentData['timestamp'] as Timestamp?;
+    final bool isOwn = senderId == _currentUserId;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
@@ -290,30 +473,49 @@ class _CommentsPageState extends State<CommentsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: senderId.isNotEmpty && senderId != _currentUserId
-                  ? () async {
-                      final profile = await _profileService.getProfile(senderId);
-                      if (mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UserViewPage(
-                              userId: senderId,
-                              userEmail: profile?.email ?? '',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  : null,
-              child: Row(
-                children: [
-                  Text(senderDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(width: 8),
-                  Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                ],
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: senderId.isNotEmpty && !isOwn
+                        ? () async {
+                            final profile = await _profileService.getProfile(senderId);
+                            if (mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => UserViewPage(
+                                    userId: senderId,
+                                    userEmail: profile?.email ?? '',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        : null,
+                    child: Row(
+                      children: [
+                        Text(senderDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(width: 8),
+                        Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isOwn)
+                  PopupMenuButton<String>(
+                    iconSize: 18,
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) {
+                      if (value == 'edit') _editComment(commentId, commentText, imageUrl);
+                      if (value == 'delete') _deleteComment(commentId);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Szerkesztés')])),
+                      PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 18), SizedBox(width: 8), Text('Törlés', style: TextStyle(color: Colors.red))])),
+                    ],
+                  ),
+              ],
             ),
             if (commentText.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -391,8 +593,9 @@ class _CommentsPageState extends State<CommentsPage> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    final commentData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                    return _buildCommentItem(commentData);
+                    final doc = snapshot.data!.docs[index];
+                    final commentData = doc.data() as Map<String, dynamic>;
+                    return _buildCommentItem(commentData, doc.id);
                   },
                 );
               },
