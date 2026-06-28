@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../settings/settings_page.dart';
 import '../comments/comments_page.dart';
+import '../auth/login_page.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/notification_bell.dart';
@@ -127,16 +128,28 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _signOut() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        await _profileService.setStatus(uid, 'offline');
+      } catch (_) {}
+    }
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) await _profileService.setStatus(uid, 'offline');
       await FirebaseAuth.instance.signOut();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hiba a kijelentkezéskor: $e')),
         );
+        return;
       }
+    }
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
     }
   }
 
@@ -217,6 +230,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Kijelentkezés',
+            onPressed: _signOut,
           ),
         ],
       ),
