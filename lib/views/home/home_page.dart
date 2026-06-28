@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/user_profile.dart';
 import '../../models/notification.dart';
 import '../../widgets/profile_avatar.dart';
@@ -361,6 +364,42 @@ class _PostCard extends StatelessWidget {
     return '${date.year}.${date.month}.${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
+  void _showDeleteDialog(BuildContext context, String postId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Poszt törlése'),
+        content: const Text('Biztosan törölni szeretnéd ezt a posztot? A törlés nem vonható vissza.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Mégse'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await firestore.collection('posts').doc(postId).delete();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Törlés'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, String postId, String currentMessage, String? currentImageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _EditPostDialog(
+        postId: postId,
+        currentMessage: currentMessage,
+        currentImageUrl: currentImageUrl,
+        firestore: firestore,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = post.data() as Map<String, dynamic>;
@@ -396,33 +435,56 @@ class _PostCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
-                      onTap: senderId != currentUserId
-                          ? () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => UserViewPage(
-                                    userId: senderId,
-                                    userEmail: profileSnap.data?.email ?? '',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: senderId != currentUserId
+                                ? () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => UserViewPage(
+                                          userId: senderId,
+                                          userEmail: profileSnap.data?.email ?? '',
+                                        ),
+                                      ),
+                                    )
+                                : null,
+                            child: Row(
+                              children: [
+                                ProfileAvatar(imageUrl: profileImageUrl, fallbackLetter: displayName, radius: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                    ],
                                   ),
                                 ),
-                              )
-                          : null,
-                      child: Row(
-                        children: [
-                          ProfileAvatar(imageUrl: profileImageUrl, fallbackLetter: displayName, radius: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text(_formatTimestamp(timestamp), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        if (senderId == currentUserId)
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'edit') _showEditDialog(context, postId, message, imageUrl);
+                              if (value == 'delete') _showDeleteDialog(context, postId);
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(children: [Icon(Icons.edit), SizedBox(width: 8), Text('Szerkesztés')]),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [Icon(Icons.delete, color: Colors.red), SizedBox(width: 8), Text('Törlés', style: TextStyle(color: Colors.red))]),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     if (message.isNotEmpty) Text(message, style: const TextStyle(fontSize: 16)),
@@ -478,6 +540,225 @@ class _PostCard extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+// --- Poszt szerkesztő dialóg képkezeléssel ---
+
+class _EditPostDialog extends StatefulWidget {
+  final String postId;
+  final String currentMessage;
+  final String? currentImageUrl;
+  final FirebaseFirestore firestore;
+
+  const _EditPostDialog({
+    required this.postId,
+    required this.currentMessage,
+    required this.currentImageUrl,
+    required this.firestore,
+  });
+
+  @override
+  State<_EditPostDialog> createState() => _EditPostDialogState();
+}
+
+class _EditPostDialogState extends State<_EditPostDialog> {
+  late final TextEditingController _controller;
+  final ImagePicker _picker = ImagePicker();
+
+  File? _newImage;
+  bool _removeExistingImage = false;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.currentMessage);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _uploadImage(File image) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.jpg';
+    final ref = FirebaseStorage.instance.ref().child('post_images').child(fileName);
+    await ref.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
+    return await ref.getDownloadURL();
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(2)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galéria'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1080);
+                if (picked != null && mounted) {
+                  setState(() { _newImage = File(picked.path); _removeExistingImage = false; });
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Kamera'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1080);
+                if (picked != null && mounted) {
+                  setState(() { _newImage = File(picked.path); _removeExistingImage = false; });
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final text = _controller.text.trim();
+    final bool willHaveImage = _newImage != null ||
+        (widget.currentImageUrl != null && !_removeExistingImage);
+    if (text.isEmpty && !willHaveImage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A poszt nem lehet teljesen üres.')),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      String? finalImageUrl;
+      if (_newImage != null) {
+        finalImageUrl = await _uploadImage(_newImage!);
+      } else if (_removeExistingImage) {
+        finalImageUrl = null;
+      } else {
+        finalImageUrl = widget.currentImageUrl;
+      }
+
+      await widget.firestore.collection('posts').doc(widget.postId).update({
+        'message': text,
+        'imageUrl': finalImageUrl,
+      });
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hiba: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showExistingImage = widget.currentImageUrl != null && !_removeExistingImage && _newImage == null;
+    final bool hasAnyImage = showExistingImage || _newImage != null;
+
+    return AlertDialog(
+      title: const Text('Poszt szerkesztése'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              maxLines: 5,
+              enabled: !_isUploading,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Poszt szövege...'),
+            ),
+            const SizedBox(height: 12),
+            if (_newImage != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(_newImage!, height: 180, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 4, right: 4,
+                    child: GestureDetector(
+                      onTap: _isUploading ? null : () => setState(() => _newImage = null),
+                      child: Container(
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(Icons.close, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ] else if (showExistingImage) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(widget.currentImageUrl!, height: 180, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 4, right: 4,
+                    child: GestureDetector(
+                      onTap: _isUploading ? null : () => setState(() => _removeExistingImage = true),
+                      child: Container(
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(Icons.close, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton.icon(
+              onPressed: _isUploading ? null : _showImageSourceSheet,
+              icon: const Icon(Icons.image),
+              label: Text(hasAnyImage ? 'Kép cseréje' : 'Kép hozzáadása'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isUploading ? null : () => Navigator.pop(context),
+          child: const Text('Mégse'),
+        ),
+        if (_isUploading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else
+          ElevatedButton(
+            onPressed: _save,
+            child: const Text('Mentés'),
+          ),
+      ],
     );
   }
 }
