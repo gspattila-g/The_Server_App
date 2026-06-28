@@ -92,7 +92,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     child: ListTile(
                       leading: Icon(
                         _getNotificationIcon(notification.type),
-                        color: notification.isRead ? Colors.grey : Theme.of(context).primaryColor,
+                        color: notification.isRead
+                            ? Colors.grey
+                            : _getNotificationColor(notification.type),
                       ),
                       title: Text(
                         '${notification.message}', // Az üzenet már tartalmazza a nevet
@@ -180,6 +182,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   /// Segédmetódus az értesítés típusához tartozó ikon visszaadására.
+  Color _getNotificationColor(String type) {
+    switch (type) {
+      case 'like':
+      case 'post_like':
+        return Colors.red;
+      case 'comment':
+        return Colors.blue;
+      case 'friend_request':
+      case 'friend_request_accepted':
+        return Colors.green;
+      case 'message':
+        return Colors.deepPurple;
+      default:
+        return Colors.orange;
+    }
+  }
+
   IconData _getNotificationIcon(String type) {
     switch (type) {
       case 'friend_request':
@@ -188,12 +207,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return Icons.people;
       case 'message':
         return Icons.chat;
+      case 'like':
       case 'post_like':
         return Icons.favorite;
+      case 'comment':
+        return Icons.comment;
       case 'new_post':
         return Icons.campaign;
       default:
-        return Icons.info;
+        return Icons.notifications;
     }
   }
 
