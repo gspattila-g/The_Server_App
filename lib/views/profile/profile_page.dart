@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../settings/settings_page.dart';
+import '../comments/comments_page.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/notification_bell.dart';
@@ -358,38 +359,64 @@ class _ProfilePageState extends State<ProfilePage> {
                         final imageUrl = data['imageUrl'] as String?;
                         final timestamp = data['timestamp'] as Timestamp?;
                         final likes = (data['likes'] as List?)?.length ?? 0;
-                        final dateStr = timestamp != null
-                            ? _formatTimestamp(timestamp)
-                            : '';
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (message.isNotEmpty)
-                                  Text(message, style: const TextStyle(fontSize: 15)),
-                                if (imageUrl != null) ...[
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
+                        final dateStr = timestamp != null ? _formatTimestamp(timestamp) : '';
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('posts')
+                              .doc(doc.id)
+                              .collection('comments')
+                              .snapshots(),
+                          builder: (context, commentSnap) {
+                            final commentCount = commentSnap.data?.docs.length ?? 0;
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CommentsPage(
+                                      postId: doc.id,
+                                      postMessage: message,
+                                      postSenderId: _currentUser!.uid,
+                                      postSenderDisplayName: _userProfile?.displayName ?? '',
+                                    ),
                                   ),
-                                ],
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.favorite_border, size: 16, color: Colors.grey),
-                                    const SizedBox(width: 4),
-                                    Text('$likes lájk', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                    const Spacer(),
-                                    Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (message.isNotEmpty)
+                                        Text(message, style: const TextStyle(fontSize: 15)),
+                                      if (imageUrl != null) ...[
+                                        const SizedBox(height: 8),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.favorite_border, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 4),
+                                          Text('$likes lájk', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                          const SizedBox(width: 12),
+                                          const Icon(Icons.comment_outlined, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 4),
+                                          Text('$commentCount komment', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                          const Spacer(),
+                                          Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     );

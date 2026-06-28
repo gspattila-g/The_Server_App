@@ -487,25 +487,43 @@ class _PostCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    if (message.isNotEmpty) Text(message, style: const TextStyle(fontSize: 16)),
-                    if (imageUrl != null && imageUrl.isNotEmpty) ...[
-                      if (message.isNotEmpty) const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          imageUrl,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (_, child, progress) => progress == null
-                              ? child
-                              : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
-                          errorBuilder: (_, __, ___) => const SizedBox(
-                            height: 60,
-                            child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CommentsPage(
+                            postId: postId,
+                            postMessage: message,
+                            postSenderId: senderId,
+                            postSenderDisplayName: displayName,
                           ),
                         ),
                       ),
-                    ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (message.isNotEmpty) Text(message, style: const TextStyle(fontSize: 16)),
+                          if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                            if (message.isNotEmpty) const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                imageUrl,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (_, child, progress) => progress == null
+                                    ? child
+                                    : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
+                                errorBuilder: (_, __, ___) => const SizedBox(
+                                  height: 60,
+                                  child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
