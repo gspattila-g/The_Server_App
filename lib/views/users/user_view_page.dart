@@ -339,6 +339,64 @@ class _UserViewPageState extends State<UserViewPage> {
                 },
               ),
 
+              if (_currentUserId != null) ...[
+                StreamBuilder<List<Game>>(
+                  stream: _gameService.getGamesStreamForUser(_currentUserId!),
+                  builder: (context, mySnap) {
+                    return StreamBuilder<List<Game>>(
+                      stream: _gameService.getGamesStreamForUser(widget.userId),
+                      builder: (context, theirSnap) {
+                        final myNames = mySnap.data
+                                ?.map((g) => g.name.trim().toLowerCase())
+                                .toSet() ??
+                            {};
+                        final common = theirSnap.data
+                                ?.where((g) => myNames.contains(g.name.trim().toLowerCase()))
+                                .toList() ??
+                            [];
+                        if (common.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.people, size: 20),
+                                const SizedBox(width: 6),
+                                Text('Közös játékok (${common.length})',
+                                    style: Theme.of(context).textTheme.titleLarge),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: common.map((game) {
+                                final color = game.status == 'playing'
+                                    ? Colors.green
+                                    : game.status == 'completed'
+                                        ? Colors.blue
+                                        : game.status == 'wishlist'
+                                            ? Colors.orange
+                                            : Colors.red;
+                                return Chip(
+                                  avatar: Icon(Icons.videogame_asset, size: 16, color: color),
+                                  label: Text(game.name, style: const TextStyle(fontSize: 13)),
+                                  backgroundColor: color.withOpacity(0.1),
+                                  side: BorderSide(color: color.withOpacity(0.4)),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 24),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+
               Text('Játékgyűjteménye:', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               StreamBuilder<List<Game>>(
