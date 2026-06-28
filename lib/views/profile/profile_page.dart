@@ -128,6 +128,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _signOut() async {
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) await _profileService.setStatus(uid, 'offline');
       await FirebaseAuth.instance.signOut();
     } catch (e) {
       if (mounted) {

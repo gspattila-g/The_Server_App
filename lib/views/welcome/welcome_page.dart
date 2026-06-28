@@ -32,12 +32,14 @@ class _WelcomePageState extends State<WelcomePage>
   final _chatService = ChatService();
 
   late final List<Widget> _pages;
-
-  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+  // UID-t initState-ben tároljuk, hogy dispose()-ban is elérhető legyen
+  // akkor is, ha a Firebase Auth már kijelentkeztette a usert
+  String? _uid;
 
   @override
   void initState() {
     super.initState();
+    _uid = FirebaseAuth.instance.currentUser?.uid;
     _pages = [
       HomePage(userEmail: widget.email),
       const CommunityPage(),
