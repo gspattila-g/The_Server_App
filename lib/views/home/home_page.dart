@@ -389,6 +389,58 @@ class _PostCard extends StatelessWidget {
     );
   }
 
+  void _showLikersSheet(BuildContext context, List<dynamic> likerIds) {
+    if (likerIds.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Lájkolók (${likerIds.length})',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: FutureBuilder<List<UserProfile?>>(
+              future: Future.wait(
+                likerIds.map((id) => profileService.getProfile(id as String)),
+              ),
+              builder: (ctx, snap) {
+                if (!snap.hasData) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+                final profiles = snap.data!;
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: profiles.length,
+                  itemBuilder: (ctx, i) {
+                    final profile = profiles[i];
+                    final name = profile?.displayName ?? 'Ismeretlen';
+                    final imageUrl = profile?.profileImageUrl;
+                    final uid = likerIds[i] as String;
+                    return ListTile(
+                      leading: ProfileAvatar(imageUrl: imageUrl, fallbackLetter: name, radius: 20),
+                      title: Text(name),
+                      onTap: uid != currentUserId
+                          ? () {
+                              Navigator.pop(ctx);
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => UserViewPage(userId: uid, userEmail: profile?.email ?? ''),
+                              ));
+                            }
+                          : null,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
   void _showEditDialog(BuildContext context, String postId, String currentMessage, String? currentImageUrl) {
     showDialog(
       context: context,
@@ -541,7 +593,11 @@ class _PostCard extends StatelessWidget {
                               color: isLiked ? Colors.red : Colors.grey),
                           onPressed: () => onToggleLike(postId, likes, senderId),
                         ),
-                        Text('${likes.length} lájk', style: const TextStyle(fontSize: 14)),
+                        GestureDetector(
+                          onTap: () => _showLikersSheet(context, likes),
+                          child: Text('${likes.length} lájk',
+                              style: const TextStyle(fontSize: 14)),
+                        ),
                         const SizedBox(width: 20),
                         IconButton(
                           icon: const Icon(Icons.comment),
