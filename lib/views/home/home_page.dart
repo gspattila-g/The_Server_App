@@ -13,6 +13,7 @@ import '../../services/profile_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/notification_bell.dart';
 import '../comments/comments_page.dart';
+import '../../widgets/fullscreen_image_page.dart';
 import '../users/user_view_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -505,18 +506,26 @@ class _PostCard extends StatelessWidget {
                           if (message.isNotEmpty) Text(message, style: const TextStyle(fontSize: 16)),
                           if (imageUrl != null && imageUrl.isNotEmpty) ...[
                             if (message.isNotEmpty) const SizedBox(height: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                imageUrl,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (_, child, progress) => progress == null
-                                    ? child
-                                    : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
-                                errorBuilder: (_, __, ___) => const SizedBox(
-                                  height: 60,
-                                  child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FullscreenImagePage(imageUrl: imageUrl),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  imageUrl,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (_, child, progress) => progress == null
+                                      ? child
+                                      : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
+                                  errorBuilder: (_, __, ___) => const SizedBox(
+                                    height: 60,
+                                    child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                  ),
                                 ),
                               ),
                             ),

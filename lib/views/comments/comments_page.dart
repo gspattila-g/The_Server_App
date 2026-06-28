@@ -11,6 +11,7 @@ import '../../models/user_profile.dart';
 import '../../services/notification_service.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/profile_avatar.dart';
+import '../../widgets/fullscreen_image_page.dart';
 import '../users/user_view_page.dart';
 
 class CommentsPage extends StatefulWidget {
@@ -422,18 +423,21 @@ class _CommentsPageState extends State<CommentsPage> {
             ],
             if (imageUrl != null && imageUrl.isNotEmpty) ...[
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  imageUrl,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
-                  errorBuilder: (_, __, ___) => const SizedBox(
-                    height: 60,
-                    child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullscreenImagePage(imageUrl: imageUrl))),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 60,
+                      child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    ),
                   ),
                 ),
               ),
@@ -523,18 +527,21 @@ class _CommentsPageState extends State<CommentsPage> {
             ],
             if (imageUrl != null && imageUrl.isNotEmpty) ...[
               const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  imageUrl,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
-                  errorBuilder: (_, __, ___) => const SizedBox(
-                    height: 60,
-                    child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FullscreenImagePage(imageUrl: imageUrl))),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 60,
+                      child: Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    ),
                   ),
                 ),
               ),
