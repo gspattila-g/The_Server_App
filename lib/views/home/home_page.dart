@@ -15,6 +15,7 @@ import '../../widgets/notification_bell.dart';
 import '../comments/comments_page.dart';
 import '../../widgets/fullscreen_image_page.dart';
 import '../users/user_view_page.dart';
+import '../../services/block_service.dart';
 
 class HomePage extends StatefulWidget {
   final String userEmail;
@@ -36,6 +37,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   String _searchQuery = '';
+  final BlockService _blockService = BlockService();
 
   @override
   void initState() {
@@ -163,26 +165,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _FriendsTab(
-            currentUserId: _currentUserId!,
-            firestore: _firestore,
-            profileCache: _profileCache,
-            profileService: _profileService,
-            onToggleLike: _toggleLike,
-            searchQuery: _searchQuery,
-          ),
-          _AllPostsTab(
-            currentUserId: _currentUserId!,
-            firestore: _firestore,
-            profileCache: _profileCache,
-            profileService: _profileService,
-            onToggleLike: _toggleLike,
-            searchQuery: _searchQuery,
-          ),
-        ],
+      body: StreamBuilder<Set<String>>(
+        stream: _currentUserId != null
+            ? _blockService.getHiddenUserIdsStream(_currentUserId!)
+            : const Stream.empty(),
+        builder: (context, blockSnap) {
+          final hiddenUserIds = blockSnap.data ?? {};
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _FriendsTab(
+                currentUserId: _currentUserId!,
+                firestore: _firestore,
+                profileCache: _profileCache,
+                profileService: _profileService,
+                onToggleLike: _toggleLike,
+                searchQuery: _searchQuery,
+                hiddenUserIds: hiddenUserIds,
+              ),
+              _AllPostsTab(
+                currentUserId: _currentUserId!,
+                firestore: _firestore,
+                profileCache: _profileCache,
+                profileService: _profileService,
+                onToggleLike: _toggleLike,
+                searchQuery: _searchQuery,
+                hiddenUserIds: hiddenUserIds,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -197,6 +209,7 @@ class _FriendsTab extends StatelessWidget {
   final ProfileService profileService;
   final Future<void> Function(String, List<dynamic>, String) onToggleLike;
   final String searchQuery;
+  final Set<String> hiddenUserIds;
 
   const _FriendsTab({
     required this.currentUserId,
@@ -205,6 +218,7 @@ class _FriendsTab extends StatelessWidget {
     required this.profileService,
     required this.onToggleLike,
     required this.searchQuery,
+    required this.hiddenUserIds,
   });
 
   @override
@@ -272,9 +286,15 @@ class _FriendsTab extends StatelessWidget {
                 if (bTs == null) return -1;
                 return bTs.compareTo(aTs);
               });
-            final filtered = searchQuery.isEmpty
+            final visibleDocs = hiddenUserIds.isEmpty
                 ? sortedDocs
                 : sortedDocs.where((doc) {
+                    final d = doc.data() as Map<String, dynamic>;
+                    return !hiddenUserIds.contains(d['senderId'] as String? ?? '');
+                  }).toList();
+            final filtered = searchQuery.isEmpty
+                ? visibleDocs
+                : visibleDocs.where((doc) {
                     final d = doc.data() as Map<String, dynamic>;
                     final q = searchQuery.toLowerCase();
                     final msg = (d['message'] as String? ?? '').toLowerCase();
@@ -308,6 +328,7 @@ class _AllPostsTab extends StatelessWidget {
   final ProfileService profileService;
   final Future<void> Function(String, List<dynamic>, String) onToggleLike;
   final String searchQuery;
+  final Set<String> hiddenUserIds;
 
   const _AllPostsTab({
     required this.currentUserId,
@@ -316,6 +337,7 @@ class _AllPostsTab extends StatelessWidget {
     required this.profileService,
     required this.onToggleLike,
     required this.searchQuery,
+    required this.hiddenUserIds,
   });
 
   @override
@@ -335,9 +357,15 @@ class _AllPostsTab extends StatelessWidget {
             ),
           );
         }
-        final filtered = searchQuery.isEmpty
+        final visibleDocs = hiddenUserIds.isEmpty
             ? snapshot.data!.docs
             : snapshot.data!.docs.where((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                return !hiddenUserIds.contains(d['senderId'] as String? ?? '');
+              }).toList();
+        final filtered = searchQuery.isEmpty
+            ? visibleDocs
+            : visibleDocs.where((doc) {
                 final d = doc.data() as Map<String, dynamic>;
                 final q = searchQuery.toLowerCase();
                 final msg = (d['message'] as String? ?? '').toLowerCase();
@@ -519,7 +547,8 @@ class _PostCard extends StatelessWidget {
     final postId = post.id;
     final message = data['message'] ?? '';
     final imageUrl = data['imageUrl'] as String?;
-    final senderId = data['senderId'] ?? '';
+    final senderId = (data['senderId'] as String? ?? '').trim();
+    if (senderId.isEmpty) return const SizedBox.shrink();
     final timestamp = data['timestamp'] as Timestamp? ?? Timestamp.now();
     final likes = data['likes'] as List<dynamic>? ?? [];
     final isLiked = likes.contains(currentUserId);

@@ -9,6 +9,7 @@ import '../../widgets/status_dot.dart';
 import '../../models/game.dart';
 import '../../services/chat_service.dart';
 import '../../services/game_service.dart';
+import '../../services/block_service.dart';
 import '../chat/chat_page.dart';
 import '../users/user_view_page.dart';
 
@@ -39,6 +40,9 @@ class _UsersPageState extends State<UsersPage> {
   // A jelenlegi felhasználó játékainak listája.
   List<Game> _currentUserGames = [];
 
+  final _blockService = BlockService();
+  Set<String> _hiddenUserIds = {};
+
   // Szűrő kapcsoló állapota: csak a közös játékokkal rendelkező felhasználókat mutatjuk.
   bool _showCommonGamesOnly = false;
 
@@ -46,7 +50,12 @@ class _UsersPageState extends State<UsersPage> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadCurrentUserGames(); // Jelenlegi felhasználó játékainak betöltése
+    _loadCurrentUserGames();
+    if (_currentUserId != null) {
+      _blockService.getHiddenUserIdsStream(_currentUserId!).listen((ids) {
+        if (mounted) setState(() => _hiddenUserIds = ids);
+      });
+    }
   }
 
   @override
@@ -401,9 +410,9 @@ class _UsersPageState extends State<UsersPage> {
                   return UserProfile.fromFirestore(doc.data() as Map<String, dynamic>);
                 }).toList();
 
-                // Saját profil kizárása — a keresési szűrést lentebb, a játékadatokkal együtt végezzük
+                // Saját profil és blokkolt felhasználók kizárása
                 final filteredUserProfiles = allUserProfiles
-                    .where((u) => u.uid != _currentUserId)
+                    .where((u) => u.uid != _currentUserId && !_hiddenUserIds.contains(u.uid))
                     .toList();
 
                 if (filteredUserProfiles.isEmpty) {

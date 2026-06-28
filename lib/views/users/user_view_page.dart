@@ -9,6 +9,7 @@ import '../../models/game.dart';
 import '../../services/profile_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/game_service.dart';
+import '../../services/block_service.dart';
 import '../chat/chat_page.dart';
 
 class UserViewPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _UserViewPageState extends State<UserViewPage> {
   final ProfileService _profileService = ProfileService();
   final ChatService _chatService = ChatService();
   final GameService _gameService = GameService();
+  final BlockService _blockService = BlockService();
 
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -220,20 +222,135 @@ class _UserViewPageState extends State<UserViewPage> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Felhasználó megtekintése')),
-      body: StreamBuilder<UserProfile?>(
-        stream: _profileService.getProfileStream(widget.userId),
-        builder: (context, profileSnapshot) {
-          if (profileSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!profileSnapshot.hasData || profileSnapshot.data == null) {
-            return const Center(child: Text('Felhasználó nem található.'));
-          }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _currentUserId != null
+          ? _blockService.getMyBlockDocStream(_currentUserId!)
+          : const Stream.empty(),
+      builder: (context, blockSnap) {
+        final blockData = blockSnap.data?.data() as Map<String, dynamic>?;
+        final myBlockedIds = List<String>.from(blockData?['blockedIds'] ?? []);
+        final blockedByIds = List<String>.from(blockData?['blockedByIds'] ?? []);
 
-          final userProfile = profileSnapshot.data!;
-          return ListView(
+        final iBlockedThem = myBlockedIds.contains(widget.userId);
+        final theyBlockedMe = blockedByIds.contains(widget.userId);
+
+        if (theyBlockedMe) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Felhasználó megtekintése')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.red.shade200, width: 2),
+                      ),
+                      child: Icon(Icons.block, size: 64, color: Colors.red.shade400),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Tartalom nem elérhető',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Ez a felhasználó blokkolt téged, ezért a profilja és a tartalmai nem elérhetők számodra.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, color: Colors.red.shade400),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Felhasználó megtekintése'),
+            actions: [
+              if (_currentUserId != null)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) async {
+                    if (value == 'block') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Felhasználó blokkolása'),
+                          content: const Text('Biztosan blokkolod ezt a felhasználót? A barátság megszűnik és nem látjátok egymás tartalmait.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Mégsem')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Blokkolás', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true && mounted) {
+                        await _blockService.blockUser(_currentUserId!, widget.userId);
+                        if (mounted) Navigator.pop(context);
+                      }
+                    } else if (value == 'unblock') {
+                      await _blockService.unblockUser(_currentUserId!, widget.userId);
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Felhasználó feloldva.')));
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (iBlockedThem)
+                      const PopupMenuItem(value: 'unblock', child: Row(children: [Icon(Icons.lock_open, color: Colors.green), SizedBox(width: 8), Text('Blokkolás feloldása')]))
+                    else
+                      const PopupMenuItem(value: 'block', child: Row(children: [Icon(Icons.block, color: Colors.red), SizedBox(width: 8), Text('Blokkolás', style: TextStyle(color: Colors.red))])),
+                  ],
+                ),
+            ],
+          ),
+          body: StreamBuilder<UserProfile?>(
+            stream: _profileService.getProfileStream(widget.userId),
+            builder: (context, profileSnapshot) {
+              if (profileSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!profileSnapshot.hasData || profileSnapshot.data == null) {
+                return const Center(child: Text('Felhasználó nem található.'));
+              }
+
+              final userProfile = profileSnapshot.data!;
+
+              if (iBlockedThem) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.block, size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 16),
+                        Text(userProfile.displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        const Text('Blokkoltad ezt a felhasználót.', style: TextStyle(color: Colors.grey)),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            await _blockService.unblockUser(_currentUserId!, widget.userId);
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Felhasználó feloldva.')));
+                          },
+                          icon: const Icon(Icons.lock_open),
+                          label: const Text('Blokkolás feloldása'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
               Column(
@@ -518,6 +635,8 @@ class _UserViewPageState extends State<UserViewPage> {
           );
         },
       ),
+    );
+      },
     );
   }
 
