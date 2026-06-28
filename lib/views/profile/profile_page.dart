@@ -138,6 +138,20 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Widget _buildStatColumn(int count, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$count',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
+    );
+  }
+
   String _formatTimestamp(Timestamp timestamp) {
     final date = timestamp.toDate();
     final now = DateTime.now();
@@ -284,7 +298,35 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('posts')
+                          .where('senderId', isEqualTo: _currentUser!.uid)
+                          .snapshots(),
+                      builder: (context, snap) {
+                        final count = snap.data?.docs.length ?? 0;
+                        return _buildStatColumn(count, 'Poszt');
+                      },
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.4), margin: const EdgeInsets.symmetric(horizontal: 24)),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('friends')
+                          .doc(_currentUser!.uid)
+                          .snapshots(),
+                      builder: (context, snap) {
+                        final data = snap.data?.data() as Map<String, dynamic>?;
+                        final count = (data?['friendIds'] as List?)?.length ?? 0;
+                        return _buildStatColumn(count, 'Barát');
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text(
                   _userProfile?.bio ?? 'Nincs bemutatkozás',
                   style: const TextStyle(fontSize: 16, color: Colors.grey),
