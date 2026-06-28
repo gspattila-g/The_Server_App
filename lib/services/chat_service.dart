@@ -36,7 +36,7 @@ class ChatService {
   /// 3. Összeállítja az üzenet adatait egy `Map` formátumban, beleértve a
   ///    küldő és fogadó azonosítóját, az üzenet szövegét, és egy szerveroldali időbélyeget.
   /// 4. Hozzáadja az üzenetet a Firestore megfelelő chat szoba 'messages' alkollekciójához.
-  Future<void> sendMessage(String receiverId, String message, {String? senderDisplayName}) async {
+  Future<void> sendMessage(String receiverId, String message, {String? senderDisplayName, String? imageUrl}) async {
     final String? currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) throw Exception('Nincs bejelentkezett felhasználó.');
 
@@ -49,13 +49,14 @@ class ChatService {
       'receiverId': receiverId,
       'message': message,
       'timestamp': FieldValue.serverTimestamp(),
+      if (imageUrl != null) 'imageUrl': imageUrl,
     };
 
     await chatRoomRef.collection('messages').add(messageData);
 
     await chatRoomRef.set({
       'participants': [currentUserId, receiverId],
-      'lastMessage': message,
+      'lastMessage': imageUrl != null && message.isEmpty ? '📷 Kép' : message,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'lastMessageSenderId': currentUserId,
     }, SetOptions(merge: true));

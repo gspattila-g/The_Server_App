@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../services/chat_service.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
 import '../../widgets/status_dot.dart';
+import '../../widgets/fullscreen_image_page.dart';
 import '../users/user_view_page.dart';
 
 /// A chat felület, ahol a felhasználók üzeneteket válthatnak egymással.
@@ -32,6 +37,9 @@ class _ChatPageState extends State<ChatPage> {
 
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   String? _currentUserDisplayName;
+  File? _selectedImage;
+  bool _isSending = false;
+  final ImagePicker _picker = ImagePicker();
 
   // A chat szoba ID-je
   late String _chatRoomId;
@@ -94,29 +102,57 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final XFile? picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1080,
+    );
+    if (picked != null) setState(() => _selectedImage = File(picked.path));
+  }
+
+  Future<String?> _uploadImage(File image) async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return null;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.jpg';
+    final ref = FirebaseStorage.instance.ref().child('chat_images').child(fileName);
+    await ref.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
+    return await ref.getDownloadURL();
+  }
+
   /// Üzenet elküldése.
   Future<void> _sendMessage() async {
-    if (_messageController.text.isNotEmpty) {
-      try {
-        await _chatService.sendMessage(
-          widget.receiverUserId,
-          _messageController.text.trim(),
-          senderDisplayName: _currentUserDisplayName,
+    final text = _messageController.text.trim();
+    if (text.isEmpty && _selectedImage == null) return;
+    setState(() => _isSending = true);
+    try {
+      String? imageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await _uploadImage(_selectedImage!);
+      }
+      await _chatService.sendMessage(
+        widget.receiverUserId,
+        text,
+        senderDisplayName: _currentUserDisplayName,
+        imageUrl: imageUrl,
+      );
+      _messageController.clear();
+      setState(() => _selectedImage = null);
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
         );
-        _messageController.clear(); // Üzenet elküldése után töröljük a beviteli mezőt
-        // Görgetés az utolsó üzenetre
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            0.0, // A ListView reverse:true miatt 0.0 az alja (legújabb üzenet)
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      } catch (e) {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hiba az üzenet küldésekor: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -148,13 +184,37 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              messageData['message'],
-              style: TextStyle(
-                color: isCurrentUser ? Colors.deepPurple[900] : Colors.grey[900],
-                fontSize: 16,
+            if ((messageData['message'] as String? ?? '').isNotEmpty)
+              Text(
+                messageData['message'] as String,
+                style: TextStyle(
+                  color: isCurrentUser ? Colors.deepPurple[900] : Colors.grey[900],
+                  fontSize: 16,
+                ),
               ),
-            ),
+            if (messageData['imageUrl'] != null) ...[
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FullscreenImagePage(imageUrl: messageData['imageUrl'] as String),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    messageData['imageUrl'] as String,
+                    width: 200,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const SizedBox(width: 200, height: 150, child: Center(child: CircularProgressIndicator())),
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -341,14 +401,44 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
+          // Kép előnézete küldés előtt
+          if (_selectedImage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(_selectedImage!, height: 120, width: 120, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 2, right: 2,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedImage = null),
+                      child: Container(
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Üzenet beviteli mező és küldés gomb
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: _isSending ? null : _pickImage,
+                  icon: const Icon(Icons.image),
+                  color: Theme.of(context).primaryColor,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
+                    enabled: !_isSending,
                     decoration: InputDecoration(
                       hintText: 'Üzenet...',
                       border: OutlineInputBorder(
@@ -356,15 +446,16 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     ),
-                    obscureText: false,
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
-                  color: Theme.of(context).primaryColor,
-                ),
+                _isSending
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    : IconButton(
+                        onPressed: _sendMessage,
+                        icon: const Icon(Icons.send),
+                        color: Theme.of(context).primaryColor,
+                      ),
               ],
             ),
           ),
