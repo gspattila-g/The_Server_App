@@ -181,6 +181,17 @@ class _UserViewPageState extends State<UserViewPage> {
     }
   }
 
+  Widget _buildStatColumn(int count, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$count', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
+    );
+  }
+
   String _getLocalizedGameStatus(String status) {
     switch (status) {
       case 'wishlist': return 'Kívánságlista';
@@ -244,7 +255,39 @@ class _UserViewPageState extends State<UserViewPage> {
                           style: TextStyle(color: StatusDot.colorFor(userProfile.status), fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _firestore
+                            .collection('posts')
+                            .where('senderId', isEqualTo: widget.userId)
+                            .snapshots(),
+                        builder: (context, snap) {
+                          final count = snap.data?.docs.length ?? 0;
+                          return _buildStatColumn(count, 'Poszt');
+                        },
+                      ),
+                      Container(
+                        width: 1, height: 40,
+                        color: Colors.grey.withOpacity(0.4),
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _firestore
+                            .collection('friends')
+                            .doc(widget.userId)
+                            .snapshots(),
+                        builder: (context, snap) {
+                          final data = snap.data?.data() as Map<String, dynamic>?;
+                          final count = (data?['friendIds'] as List?)?.length ?? 0;
+                          return _buildStatColumn(count, 'Barát');
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Text(userProfile.email, style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.grey)),
                   const SizedBox(height: 16),
                   Text(userProfile.bio, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
