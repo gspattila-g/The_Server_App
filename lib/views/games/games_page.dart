@@ -83,6 +83,7 @@ class _GamesPageState extends State<GamesPage> {
     _gamePlatformController.clear();
     _selectedStatus = 'wishlist';
     _PreDefinedGame? selectedPreDefined;
+    int? dialogRating;
 
     return showDialog(
       context: context,
@@ -168,6 +169,25 @@ class _GamesPageState extends State<GamesPage> {
                         });
                       },
                     ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Text('Értékelés:'),
+                        const SizedBox(width: 8),
+                        ...List.generate(5, (i) => GestureDetector(
+                          onTap: () => setStateInDialog(() {
+                            dialogRating = (dialogRating == i + 1) ? null : i + 1;
+                          }),
+                          child: Icon(
+                            dialogRating != null && i < dialogRating!
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                        )),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -187,6 +207,7 @@ class _GamesPageState extends State<GamesPage> {
                         platform: _gamePlatformController.text.trim().isEmpty ? 'Ismeretlen' : _gamePlatformController.text.trim(),
                         status: _selectedStatus,
                         addedAt: Timestamp.now(),
+                        rating: dialogRating,
                       );
                       try {
                         await _gameService.addGame(newGame);
@@ -220,6 +241,7 @@ class _GamesPageState extends State<GamesPage> {
     _gameGenreController.text = game.genre;
     _gamePlatformController.text = game.platform;
     _selectedStatus = game.status;
+    int? dialogRating = game.rating;
 
     return showDialog(
       context: context,
@@ -261,6 +283,25 @@ class _GamesPageState extends State<GamesPage> {
                           _selectedStatus = newValue!;
                         });
                       },
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Text('Értékelés:'),
+                        const SizedBox(width: 8),
+                        ...List.generate(5, (i) => GestureDetector(
+                          onTap: () => setStateInDialog(() {
+                            dialogRating = (dialogRating == i + 1) ? null : i + 1;
+                          }),
+                          child: Icon(
+                            dialogRating != null && i < dialogRating!
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                        )),
+                      ],
                     ),
                   ],
                 ),
@@ -321,12 +362,13 @@ class _GamesPageState extends State<GamesPage> {
                   onPressed: () async {
                     if (_gameNameController.text.isNotEmpty) {
                       final updatedGame = Game(
-                        id: game.id, // Megtartjuk az eredeti ID-t
+                        id: game.id,
                         name: _gameNameController.text.trim(),
                         genre: _gameGenreController.text.trim().isEmpty ? 'Ismeretlen' : _gameGenreController.text.trim(),
                         platform: _gamePlatformController.text.trim().isEmpty ? 'Ismeretlen' : _gamePlatformController.text.trim(),
                         status: _selectedStatus,
-                        addedAt: game.addedAt, // Megtartjuk az eredeti hozzáadás dátumát
+                        addedAt: game.addedAt,
+                        rating: dialogRating,
                       );
                       try {
                         await _gameService.updateGame(updatedGame);
@@ -461,6 +503,16 @@ class _GamesPageState extends State<GamesPage> {
                         Text('Műfaj: ${game.genre}', style: const TextStyle(fontSize: 14)),
                         Text('Platform: ${game.platform}', style: const TextStyle(fontSize: 14)),
                         const SizedBox(height: 5),
+                        Row(
+                          children: List.generate(5, (i) => Icon(
+                            game.rating != null && i < game.rating!
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 18,
+                          )),
+                        ),
+                        const SizedBox(height: 4),
                         Text(
                           'Hozzáadva: ${_formatTimestamp(game.addedAt)}',
                           style: const TextStyle(fontSize: 12, color: Colors.grey),

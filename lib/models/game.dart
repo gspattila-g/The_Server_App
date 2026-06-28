@@ -11,6 +11,7 @@ class Game {
   final String platform; // Platform (pl. PC, PlayStation, Xbox, Switch)
   String status; // Állapot (pl. 'wishlist', 'playing', 'completed', 'dropped')
   final Timestamp addedAt; // Hozzáadás időpontja
+  int? rating; // Értékelés (1-5), null = nincs értékelve
 
   Game({
     required this.id,
@@ -19,6 +20,7 @@ class Game {
     this.platform = 'Ismeretlen', // Alapértelmezett érték
     this.status = 'wishlist', // Alapértelmezett állapot
     required this.addedAt,
+    this.rating,
   });
 
   /// Adatok átalakítása Firestore-ba menthető Map formátummá.
@@ -29,6 +31,7 @@ class Game {
       'platform': platform,
       'status': status,
       'addedAt': addedAt,
+      'rating': rating,
     };
   }
 
@@ -41,7 +44,8 @@ class Game {
       genre: data['genre'] ?? 'Ismeretlen',
       platform: data['platform'] ?? 'Ismeretlen',
       status: data['status'] ?? 'wishlist',
-      addedAt: data['addedAt'] as Timestamp? ?? Timestamp.now(), // Alapértelmezett, ha hiányzik
+      addedAt: data['addedAt'] as Timestamp? ?? Timestamp.now(),
+      rating: data['rating'] as int?,
     );
   }
 }
