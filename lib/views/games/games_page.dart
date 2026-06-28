@@ -25,13 +25,17 @@ class _PreDefinedGame {
   const _PreDefinedGame(this.name, this.genre, this.platform);
 }
 
-class _GamesPageState extends State<GamesPage> {
+class _GamesPageState extends State<GamesPage> with SingleTickerProviderStateMixin {
   final GameService _gameService = GameService();
   final TextEditingController _gameNameController = TextEditingController();
   final TextEditingController _gameGenreController = TextEditingController();
   final TextEditingController _gamePlatformController = TextEditingController();
 
   String _selectedStatus = 'wishlist';
+
+  late final TabController _tabController;
+  static const List<String?> _filterValues = [null, 'playing', 'completed', 'wishlist', 'dropped'];
+  String? _filterStatus;
 
   static const List<_PreDefinedGame> _preDefinedGames = [
     _PreDefinedGame('Minecraft', 'Sandbox', 'PC / Console / Mobile'),
@@ -69,7 +73,19 @@ class _GamesPageState extends State<GamesPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() => _filterStatus = _filterValues[_tabController.index]);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _tabController.dispose();
     _gameNameController.dispose();
     _gameGenreController.dispose();
     _gamePlatformController.dispose();
@@ -440,6 +456,17 @@ class _GamesPageState extends State<GamesPage> {
       appBar: AppBar(
         title: const Text('Játék könyvtár'),
         actions: const [NotificationBell()],
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Összes'),
+            Tab(text: 'Játszom'),
+            Tab(text: 'Befejeztem'),
+            Tab(text: 'Kívánságlista'),
+            Tab(text: 'Abbahagytam'),
+          ],
+        ),
       ),
       body: StreamBuilder<List<Game>>(
         stream: _gameService.getGamesStreamForUser(currentUserId),
@@ -454,7 +481,13 @@ class _GamesPageState extends State<GamesPage> {
             return const Center(child: Text('Még nincsenek játékok a gyűjteményedben.'));
           }
 
-          final games = snapshot.data!;
+          final games = _filterStatus == null
+              ? snapshot.data!
+              : snapshot.data!.where((g) => g.status == _filterStatus).toList();
+
+          if (games.isEmpty) {
+            return const Center(child: Text('Nincs játék ebben a kategóriában.'));
+          }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
