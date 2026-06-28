@@ -156,41 +156,50 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// Üzenetbuborék építése a chaten belül.
-  ///
-  /// [messageData] az üzenet Firestore adatait tartalmazó Map.
   Widget _buildMessageItem(Map<String, dynamic> messageData, {bool isLastSentByMe = false, bool isRead = false}) {
-    final bool isCurrentUser = messageData['senderId'] == _currentUser?.uid;
+    final bool isMe = messageData['senderId'] == _currentUser?.uid;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final bubbleColor = isMe
+        ? theme.colorScheme.primary
+        : (isDark ? Colors.grey[800]! : Colors.grey[200]!);
+    final textColor = isMe ? Colors.white : theme.colorScheme.onSurface;
+    final subColor = isMe ? Colors.white.withOpacity(0.65) : theme.colorScheme.onSurface.withOpacity(0.45);
+
+    final radius = isMe
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(18),
+            bottomRight: Radius.circular(4),
+          )
+        : const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(18),
+          );
 
     return Align(
-      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-        decoration: BoxDecoration(
-          color: isCurrentUser ? Colors.deepPurple[100] : Colors.grey[300],
-          borderRadius: BorderRadius.circular(15),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        margin: EdgeInsets.only(
+          top: 2, bottom: 2,
+          left: isMe ? 56 : 12,
+          right: isMe ? 12 : 56,
         ),
+        decoration: BoxDecoration(color: bubbleColor, borderRadius: radius),
         child: Column(
-          crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              messageData['senderName'] ?? messageData['senderEmail'] ?? 'Ismeretlen',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isCurrentUser ? Colors.deepPurple[800] : Colors.grey[700],
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 4),
             if ((messageData['message'] as String? ?? '').isNotEmpty)
               Text(
                 messageData['message'] as String,
-                style: TextStyle(
-                  color: isCurrentUser ? Colors.deepPurple[900] : Colors.grey[900],
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: textColor, fontSize: 15, height: 1.3),
               ),
             if (messageData['imageUrl'] != null) ...[
               const SizedBox(height: 6),
@@ -215,28 +224,20 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ],
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _formatTimestamp(messageData['timestamp'] as Timestamp?),
-                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                  style: TextStyle(fontSize: 10, color: subColor),
                 ),
                 if (isLastSentByMe) ...[
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 4),
                   Icon(
                     isRead ? Icons.done_all : Icons.done,
                     size: 13,
-                    color: isRead ? Colors.blue : Colors.black45,
-                  ),
-                  const SizedBox(width: 2),
-                  Text(
-                    isRead ? 'Elolvasva' : 'Elküldve',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isRead ? Colors.blue : Colors.black45,
-                    ),
+                    color: isRead ? Colors.lightBlueAccent : subColor,
                   ),
                 ],
               ],
@@ -426,35 +427,52 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           // Üzenet beviteli mező és küldés gomb
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, -2))],
+            ),
             child: Row(
               children: [
                 IconButton(
                   onPressed: _isSending ? null : _pickImage,
-                  icon: const Icon(Icons.image),
-                  color: Theme.of(context).primaryColor,
+                  icon: Icon(Icons.image_outlined, color: Theme.of(context).colorScheme.primary),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     enabled: !_isSending,
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLines: null,
                     decoration: InputDecoration(
                       hintText: 'Üzenet...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[800]
+                          : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 _isSending
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : IconButton(
-                        onPressed: _sendMessage,
-                        icon: const Icon(Icons.send),
-                        color: Theme.of(context).primaryColor,
+                    ? const SizedBox(width: 44, height: 44, child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))))
+                    : Material(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: _sendMessage,
+                          customBorder: const CircleBorder(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                          ),
+                        ),
                       ),
               ],
             ),
