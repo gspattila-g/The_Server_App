@@ -36,6 +36,9 @@ class _GamesPageState extends State<GamesPage> with SingleTickerProviderStateMix
   late final TabController _tabController;
   static const List<String?> _filterValues = [null, 'playing', 'completed', 'wishlist', 'dropped'];
   String? _filterStatus;
+  bool _isSearching = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   static const List<_PreDefinedGame> _preDefinedGames = [
     _PreDefinedGame('Minecraft', 'Sandbox', 'PC / Console / Mobile'),
@@ -86,6 +89,7 @@ class _GamesPageState extends State<GamesPage> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     _gameNameController.dispose();
     _gameGenreController.dispose();
     _gamePlatformController.dispose();
@@ -454,8 +458,36 @@ class _GamesPageState extends State<GamesPage> with SingleTickerProviderStateMix
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Játék könyvtár'),
-        actions: const [NotificationBell()],
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Keresés név, műfaj, platform...',
+                  border: InputBorder.none,
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              )
+            : const Text('Játék könyvtár'),
+        actions: _isSearching
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() {
+                    _isSearching = false;
+                    _searchQuery = '';
+                    _searchController.clear();
+                  }),
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Keresés',
+                  onPressed: () => setState(() => _isSearching = true),
+                ),
+                const NotificationBell(),
+              ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -481,12 +513,21 @@ class _GamesPageState extends State<GamesPage> with SingleTickerProviderStateMix
             return const Center(child: Text('Még nincsenek játékok a gyűjteményedben.'));
           }
 
-          final games = _filterStatus == null
-              ? snapshot.data!
-              : snapshot.data!.where((g) => g.status == _filterStatus).toList();
+          final q = _searchQuery.toLowerCase();
+          final games = snapshot.data!.where((g) {
+            final statusMatch = _filterStatus == null || g.status == _filterStatus;
+            final searchMatch = q.isEmpty ||
+                g.name.toLowerCase().contains(q) ||
+                g.genre.toLowerCase().contains(q) ||
+                g.platform.toLowerCase().contains(q);
+            return statusMatch && searchMatch;
+          }).toList();
 
           if (games.isEmpty) {
-            return const Center(child: Text('Nincs játék ebben a kategóriában.'));
+            return Center(child: Text(
+              q.isNotEmpty ? 'Nincs találat: "$_searchQuery"' : 'Nincs játék ebben a kategóriában.',
+              style: const TextStyle(color: Colors.grey),
+            ));
           }
 
           return ListView.builder(
