@@ -492,6 +492,16 @@ class _UserViewPageState extends State<UserViewPage> {
                               Text('Műfaj: ${game.genre}', style: const TextStyle(fontSize: 14)),
                               Text('Platform: ${game.platform}', style: const TextStyle(fontSize: 14)),
                               const SizedBox(height: 5),
+                              Row(
+                                children: List.generate(5, (i) => Icon(
+                                  game.rating != null && i < game.rating!
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: Colors.amber,
+                                  size: 18,
+                                )),
+                              ),
+                              const SizedBox(height: 4),
                               Text(
                                 'Hozzáadva: ${_formatTimestamp(game.addedAt)}',
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
