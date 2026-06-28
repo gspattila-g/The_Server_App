@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 class ChatService {
   // A Firestore adatbázis példánya. Ezen keresztül érjük el a Firestore szolgáltatást.
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  // A Firebase Authentication példánya a jelenlegi felhasználó UID-jének lekérdezéséhez.
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Generálja egy chat szoba azonosítóját két felhasználó UID-je alapján.
@@ -54,12 +53,17 @@ class ChatService {
 
     await chatRoomRef.collection('messages').add(messageData);
 
+    final displayMessage = imageUrl != null && message.isEmpty ? '📷 Kép' : message;
+
+    // Top-level mező: 'unread_<uid>' – megbízható increment set()+merge:true-val
     await chatRoomRef.set({
       'participants': [currentUserId, receiverId],
-      'lastMessage': imageUrl != null && message.isEmpty ? '📷 Kép' : message,
+      'lastMessage': displayMessage,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'lastMessageSenderId': currentUserId,
+      'unread_$receiverId': FieldValue.increment(1),
     }, SetOptions(merge: true));
+
   }
 
   Stream<QuerySnapshot> getUserChats(String userId) {
@@ -126,8 +130,21 @@ class ChatService {
   }
 
   Future<void> markAsRead(String chatRoomId, String userId) async {
-    await _firestore.collection('chats').doc(chatRoomId).set({
+    final ref = _firestore.collection('chats').doc(chatRoomId);
+    await ref.set({
       'readBy': {userId: FieldValue.serverTimestamp()},
+      'unread_$userId': 0,
     }, SetOptions(merge: true));
+  }
+
+  Stream<int> getTotalUnreadStream(String userId) {
+    return getUserChats(userId).map((snapshot) {
+      int total = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        total += (data['unread_$userId'] as num? ?? 0).toInt();
+      }
+      return total;
+    });
   }
 }

@@ -25,6 +25,8 @@ class _ChatListPageState extends State<ChatListPage> {
   final _searchController = TextEditingController();
   bool _backfillDone = false;
   String _searchQuery = '';
+  // utolsó kész lista – megmutatjuk amíg az új betölt
+  List<_ChatItem> _lastItems = [];
 
   @override
   void initState() {
@@ -117,14 +119,19 @@ class _ChatListPageState extends State<ChatListPage> {
                       return FutureBuilder<List<_ChatItem>>(
                         future: _buildChatItems(chats),
                         builder: (context, itemsSnap) {
-                          if (!itemsSnap.hasData) {
-                            return const Center(child: CircularProgressIndicator());
+                          // Amíg az új adat betölt, az előző lista látszik (nem villan)
+                          if (itemsSnap.hasData) {
+                            _lastItems = itemsSnap.data!;
                           }
 
-                          final items = itemsSnap.data!.where((item) {
+                          final items = _lastItems.where((item) {
                             if (_searchQuery.isEmpty) return true;
                             return item.name.toLowerCase().contains(_searchQuery);
                           }).toList();
+
+                          if (_lastItems.isEmpty && !itemsSnap.hasData) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
 
                           if (items.isEmpty) {
                             return Center(
@@ -142,7 +149,11 @@ class _ChatListPageState extends State<ChatListPage> {
                             separatorBuilder: (_, __) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final item = items[index];
+                              final hasUnread = item.unreadCount > 0;
                               return ListTile(
+                                tileColor: hasUnread
+                                    ? Theme.of(context).colorScheme.primary.withOpacity(0.06)
+                                    : null,
                                 leading: Container(
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
@@ -159,19 +170,46 @@ class _ChatListPageState extends State<ChatListPage> {
                                     radius: 20,
                                   ),
                                 ),
-                                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                title: Text(
+                                  item.name,
+                                  style: TextStyle(
+                                    fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                                    color: hasUnread ? Theme.of(context).colorScheme.primary : null,
+                                  ),
+                                ),
                                 subtitle: Text(
                                   item.lastMessage,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.grey),
+                                  style: TextStyle(
+                                    color: hasUnread ? Colors.black87 : Colors.grey,
+                                    fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
+                                  ),
                                 ),
-                                trailing: item.lastTime != null
-                                    ? Text(
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (hasUnread)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${item.unreadCount}',
+                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    if (item.lastTime != null) ...[
+                                      const SizedBox(width: 6),
+                                      Text(
                                         _formatTime(item.lastTime!),
                                         style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      )
-                                    : null,
+                                      ),
+                                    ],
+                                  ],
+                                ),
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -213,12 +251,15 @@ class _ChatListPageState extends State<ChatListPage> {
         if (profile != null) _profileCache[otherUserId] = profile;
       }
 
+      final unreadCount = (data['unread_$_currentUserId'] as num? ?? 0).toInt();
+
       items.add(_ChatItem(
         otherUserId: otherUserId,
         profile: profile,
         name: profile?.displayName ?? otherUserId,
         lastMessage: data['lastMessage'] as String? ?? '',
         lastTime: data['lastMessageTime'] as Timestamp?,
+        unreadCount: unreadCount,
       ));
     }
     return items;
@@ -241,6 +282,7 @@ class _ChatItem {
   final String name;
   final String lastMessage;
   final Timestamp? lastTime;
+  final int unreadCount;
 
   const _ChatItem({
     required this.otherUserId,
@@ -248,5 +290,6 @@ class _ChatItem {
     required this.name,
     required this.lastMessage,
     required this.lastTime,
+    this.unreadCount = 0,
   });
 }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../services/fcm_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/chat_service.dart';
 import '../home/home_page.dart';
 import '../profile/profile_page.dart';
 import '../community/community_page.dart';
@@ -28,6 +29,7 @@ class _WelcomePageState extends State<WelcomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
   final _profileService = ProfileService();
+  final _chatService = ChatService();
 
   late final List<Widget> _pages;
 
@@ -120,12 +122,27 @@ class _WelcomePageState extends State<WelcomePage>
             setState(() => _currentIndex = index);
           }
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Főoldal'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_alt), label: 'Barátok'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Üzenetek'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'Több'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Főoldal'),
+          const BottomNavigationBarItem(icon: Icon(Icons.people_alt), label: 'Barátok'),
+          BottomNavigationBarItem(
+            label: 'Üzenetek',
+            icon: _uid != null
+                ? StreamBuilder<int>(
+                    stream: _chatService.getTotalUnreadStream(_uid!),
+                    builder: (context, snap) {
+                      final count = snap.data ?? 0;
+                      return Badge(
+                        isLabelVisible: count > 0,
+                        label: Text('$count'),
+                        child: const Icon(Icons.chat),
+                      );
+                    },
+                  )
+                : const Icon(Icons.chat),
+          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          const BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'Több'),
         ],
       ),
     );

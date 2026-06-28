@@ -41,11 +41,12 @@ class NotificationService {
   Stream<List<AppNotification>> getNotificationsForUser(String receiverId) {
     return _notificationsCollection
         .where('receiverId', isEqualTo: receiverId)
-        .orderBy('timestamp', descending: true) // Legújabb értesítések elöl
+        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
           .map((doc) => AppNotification.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((n) => n.type != 'message')
           .toList();
     });
   }
@@ -88,7 +89,9 @@ class NotificationService {
         .where('receiverId', isEqualTo: receiverId)
         .where('isRead', isEqualTo: false)
         .snapshots()
-        .map((snap) => snap.docs.length);
+        .map((snap) => snap.docs
+            .where((doc) => (doc.data() as Map<String, dynamic>)['type'] != 'message')
+            .length);
   }
 
   /// Értesítés törlése az adatbázisból.
