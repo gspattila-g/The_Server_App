@@ -33,6 +33,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
   late final TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -106,24 +110,50 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Főoldal'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Keresés poszt vagy név alapján...',
+                  border: InputBorder.none,
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              )
+            : const Text('Főoldal'),
         actions: [
-          const NotificationBell(),
-          IconButton(
-            icon: const Icon(Icons.add_box),
-            tooltip: 'Új poszt',
-            onPressed: () async {
-              final result = await Navigator.push<Map<String, dynamic?>>(
-                context,
-                MaterialPageRoute(builder: (context) => const NewPostPage()),
-              );
-              if (result != null && mounted) {
-                final text = (result['text'] as String?) ?? '';
-                final imageUrl = result['imageUrl'] as String?;
-                _addNewPost(context, text, imageUrl);
-              }
-            },
-          ),
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => setState(() {
+                _isSearching = false;
+                _searchQuery = '';
+                _searchController.clear();
+              }),
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Keresés',
+              onPressed: () => setState(() => _isSearching = true),
+            ),
+            const NotificationBell(),
+            IconButton(
+              icon: const Icon(Icons.add_box),
+              tooltip: 'Új poszt',
+              onPressed: () async {
+                final result = await Navigator.push<Map<String, dynamic?>>(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NewPostPage()),
+                );
+                if (result != null && mounted) {
+                  final text = (result['text'] as String?) ?? '';
+                  final imageUrl = result['imageUrl'] as String?;
+                  _addNewPost(context, text, imageUrl);
+                }
+              },
+            ),
+          ],
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -142,6 +172,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             profileCache: _profileCache,
             profileService: _profileService,
             onToggleLike: _toggleLike,
+            searchQuery: _searchQuery,
           ),
           _AllPostsTab(
             currentUserId: _currentUserId!,
@@ -149,6 +180,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             profileCache: _profileCache,
             profileService: _profileService,
             onToggleLike: _toggleLike,
+            searchQuery: _searchQuery,
           ),
         ],
       ),
@@ -164,6 +196,7 @@ class _FriendsTab extends StatelessWidget {
   final Map<String, UserProfile> profileCache;
   final ProfileService profileService;
   final Future<void> Function(String, List<dynamic>, String) onToggleLike;
+  final String searchQuery;
 
   const _FriendsTab({
     required this.currentUserId,
@@ -171,6 +204,7 @@ class _FriendsTab extends StatelessWidget {
     required this.profileCache,
     required this.profileService,
     required this.onToggleLike,
+    required this.searchQuery,
   });
 
   @override
@@ -238,8 +272,20 @@ class _FriendsTab extends StatelessWidget {
                 if (bTs == null) return -1;
                 return bTs.compareTo(aTs);
               });
+            final filtered = searchQuery.isEmpty
+                ? sortedDocs
+                : sortedDocs.where((doc) {
+                    final d = doc.data() as Map<String, dynamic>;
+                    final q = searchQuery.toLowerCase();
+                    final msg = (d['message'] as String? ?? '').toLowerCase();
+                    final name = (d['senderDisplayName'] as String? ?? '').toLowerCase();
+                    return msg.contains(q) || name.contains(q);
+                  }).toList();
+            if (filtered.isEmpty) {
+              return Center(child: Text('Nincs találat: "$searchQuery"', style: const TextStyle(color: Colors.grey)));
+            }
             return _PostList(
-              posts: sortedDocs,
+              posts: filtered,
               currentUserId: currentUserId,
               firestore: firestore,
               profileCache: profileCache,
@@ -261,6 +307,7 @@ class _AllPostsTab extends StatelessWidget {
   final Map<String, UserProfile> profileCache;
   final ProfileService profileService;
   final Future<void> Function(String, List<dynamic>, String) onToggleLike;
+  final String searchQuery;
 
   const _AllPostsTab({
     required this.currentUserId,
@@ -268,6 +315,7 @@ class _AllPostsTab extends StatelessWidget {
     required this.profileCache,
     required this.profileService,
     required this.onToggleLike,
+    required this.searchQuery,
   });
 
   @override
@@ -287,8 +335,20 @@ class _AllPostsTab extends StatelessWidget {
             ),
           );
         }
+        final filtered = searchQuery.isEmpty
+            ? snapshot.data!.docs
+            : snapshot.data!.docs.where((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                final q = searchQuery.toLowerCase();
+                final msg = (d['message'] as String? ?? '').toLowerCase();
+                final name = (d['senderDisplayName'] as String? ?? '').toLowerCase();
+                return msg.contains(q) || name.contains(q);
+              }).toList();
+        if (filtered.isEmpty) {
+          return Center(child: Text('Nincs találat: "$searchQuery"', style: const TextStyle(color: Colors.grey)));
+        }
         return _PostList(
-          posts: snapshot.data!.docs,
+          posts: filtered,
           currentUserId: currentUserId,
           firestore: firestore,
           profileCache: profileCache,
