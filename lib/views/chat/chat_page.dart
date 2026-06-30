@@ -427,7 +427,9 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           // Üzenet beviteli mező és küldés gomb
-          Container(
+          SafeArea(
+            top: false,
+            child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
@@ -477,6 +479,7 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
+          ), // SafeArea
         ],
       ),
     );
