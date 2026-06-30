@@ -64,6 +64,20 @@ class ChatService {
       'unread_$receiverId': FieldValue.increment(1),
     }, SetOptions(merge: true));
 
+    // Push notification kiváltása: a Cloud Function figyeli ezt a collection-t
+    final senderName = senderDisplayName ?? _auth.currentUser?.email ?? 'Valaki';
+    final notifBody = imageUrl != null && message.isEmpty
+        ? '📷 Képet küldött'
+        : (message.length > 100 ? '${message.substring(0, 100)}...' : message);
+    await _firestore.collection('notifications').add({
+      'senderId': currentUserId,
+      'receiverId': receiverId,
+      'type': 'message',
+      'message': '$senderName: $notifBody',
+      'eventId': chatRoomId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
   }
 
   Stream<QuerySnapshot> getUserChats(String userId) {
