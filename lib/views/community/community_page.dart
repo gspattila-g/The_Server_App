@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/user_profile.dart';
+import '../../services/profile_service.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/status_dot.dart';
@@ -23,6 +24,8 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  final _profileService = ProfileService();
+  final _statusStreams = <String, Stream<UserProfile?>>{};
 
   // Szövegvezérlő a barátok keresőmezőjéhez.
   final TextEditingController _searchController = TextEditingController();
@@ -315,27 +318,33 @@ class _CommunityPageState extends State<CommunityPage> {
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
                         elevation: 2,
                         child: ListTile(
-                          leading: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: StatusDot.colorFor(friendProfile.status),
-                                width: 3,
-                              ),
-                            ),
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundImage: friendProfile.profileImageUrl != null && friendProfile.profileImageUrl!.isNotEmpty
-                                  ? NetworkImage(friendProfile.profileImageUrl!)
-                                  : null,
-                              child: (friendProfile.profileImageUrl == null || friendProfile.profileImageUrl!.isEmpty)
-                                  ? Text(
-                                      friendProfile.displayName.isNotEmpty
-                                          ? friendProfile.displayName[0].toUpperCase()
-                                          : '?',
-                                    )
-                                  : null,
-                            ),
+                          leading: StreamBuilder<UserProfile?>(
+                            stream: _statusStreams.putIfAbsent(friendProfile.uid, () => _profileService.getProfileStream(friendProfile.uid)),
+                            builder: (context, statusSnap) {
+                              final status = statusSnap.data?.status ?? friendProfile.status;
+                              return Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: StatusDot.colorFor(status),
+                                    width: 3,
+                                  ),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage: friendProfile.profileImageUrl != null && friendProfile.profileImageUrl!.isNotEmpty
+                                      ? NetworkImage(friendProfile.profileImageUrl!)
+                                      : null,
+                                  child: (friendProfile.profileImageUrl == null || friendProfile.profileImageUrl!.isEmpty)
+                                      ? Text(
+                                          friendProfile.displayName.isNotEmpty
+                                              ? friendProfile.displayName[0].toUpperCase()
+                                              : '?',
+                                        )
+                                      : null,
+                                ),
+                              );
+                            },
                           ),
                           title: Text(friendProfile.displayName),
                           subtitle: Text(friendProfile.bio.isNotEmpty ? friendProfile.bio : 'Nincs bemutatkozás'),

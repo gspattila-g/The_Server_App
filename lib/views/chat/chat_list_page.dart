@@ -21,6 +21,7 @@ class _ChatListPageState extends State<ChatListPage> {
   final _chatService = ChatService();
   final _profileService = ProfileService();
   final _profileCache = <String, UserProfile>{};
+  final _statusStreams = <String, Stream<UserProfile?>>{};
   final _currentUserId = FirebaseAuth.instance.currentUser?.uid;
   final _searchController = TextEditingController();
   bool _backfillDone = false;
@@ -155,7 +156,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                     ? Theme.of(context).colorScheme.primary.withOpacity(0.06)
                                     : null,
                                 leading: StreamBuilder<UserProfile?>(
-                                  stream: _profileService.getProfileStream(item.otherUserId),
+                                  stream: _statusStreams.putIfAbsent(item.otherUserId, () => _profileService.getProfileStream(item.otherUserId)),
                                   builder: (context, statusSnap) {
                                     final status = statusSnap.data?.status ?? item.profile?.status ?? 'offline';
                                     return Container(
