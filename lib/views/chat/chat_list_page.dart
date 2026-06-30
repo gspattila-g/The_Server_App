@@ -154,21 +154,25 @@ class _ChatListPageState extends State<ChatListPage> {
                                 tileColor: hasUnread
                                     ? Theme.of(context).colorScheme.primary.withOpacity(0.06)
                                     : null,
-                                leading: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: item.profile != null
-                                          ? StatusDot.colorFor(item.profile!.status)
-                                          : Colors.grey,
-                                      width: 3,
-                                    ),
-                                  ),
-                                  child: ProfileAvatar(
-                                    imageUrl: item.profile?.profileImageUrl,
-                                    fallbackLetter: item.name,
-                                    radius: 20,
-                                  ),
+                                leading: StreamBuilder<UserProfile?>(
+                                  stream: _profileService.getProfileStream(item.otherUserId),
+                                  builder: (context, statusSnap) {
+                                    final status = statusSnap.data?.status ?? item.profile?.status ?? 'offline';
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: StatusDot.colorFor(status),
+                                          width: 3,
+                                        ),
+                                      ),
+                                      child: ProfileAvatar(
+                                        imageUrl: item.profile?.profileImageUrl,
+                                        fallbackLetter: item.name,
+                                        radius: 20,
+                                      ),
+                                    );
+                                  },
                                 ),
                                 title: Text(
                                   item.name,
