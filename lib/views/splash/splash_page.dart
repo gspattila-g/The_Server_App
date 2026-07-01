@@ -64,15 +64,24 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF0F4F8);
+    final gradientColors = isDark
+        ? const [Color(0xFF0D0D0D), Color(0xFF1A1A1A), Color(0xFF0D0D0D)]
+        : const [Color(0xFFF0F4F8), Color(0xFFE8EFF5), Color(0xFFF0F4F8)];
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.white.withOpacity(0.55) : Colors.black45;
+    final versionColor = isDark ? Colors.white.withOpacity(0.25) : Colors.black26;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: bgColor,
       body: SizedBox.expand(
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0D0D0D), Color(0xFF1a1a1a), Color(0xFF0D0D0D)],
+              colors: gradientColors,
             ),
           ),
           child: SafeArea(
@@ -83,22 +92,18 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                   opacity: _fadeAnim,
                   child: ScaleTransition(
                     scale: _scaleAnim,
-                    child: Image.asset(
-                      'assets/icon/icon.png',
-                      width: 160,
-                      height: 160,
-                    ),
+                    child: Image.asset('assets/icon/icon.png', width: 160, height: 160),
                   ),
                 ),
                 const SizedBox(height: 32),
                 FadeTransition(
                   opacity: _fadeAnim,
-                  child: const Text(
+                  child: Text(
                     'The Server',
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: titleColor,
                       letterSpacing: 2,
                     ),
                   ),
@@ -108,11 +113,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                   opacity: _subtitleFadeAnim,
                   child: Text(
                     'Játssz. Kapcsolódj. Oszd meg.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.55),
-                      letterSpacing: 1,
-                    ),
+                    style: TextStyle(fontSize: 14, color: subtitleColor, letterSpacing: 1),
                   ),
                 ),
                 const Spacer(flex: 3),
@@ -120,13 +121,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                   opacity: _subtitleFadeAnim,
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 32),
-                    child: Text(
-                      'v1.0.0',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.25),
-                      ),
-                    ),
+                    child: Text('v1.0.0', style: TextStyle(fontSize: 12, color: versionColor)),
                   ),
                 ),
               ],

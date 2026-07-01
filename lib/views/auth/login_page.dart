@@ -50,14 +50,25 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgColor = isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF0F4F8);
+    final gradientColors = isDark
+        ? const [Color(0xFF0D0D0D), Color(0xFF1A1A1A), Color(0xFF0D0D0D)]
+        : const [Color(0xFFF0F4F8), Color(0xFFE8EFF5), Color(0xFFF0F4F8)];
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.white38 : Colors.black38;
+    final linkColor = isDark ? const Color(0xFF64B5F6) : const Color(0xFF1565C0);
+    final secondaryTextColor = isDark ? Colors.white54 : Colors.black45;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: bgColor,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0D0D0D), Color(0xFF1a1a1a), Color(0xFF0D0D0D)],
+            colors: gradientColors,
           ),
         ),
         child: SafeArea(
@@ -66,15 +77,14 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               children: [
                 const SizedBox(height: 60),
-                // Logo
                 Image.asset('assets/icon/icon.png', width: 100, height: 100),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'The Server',
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: titleColor,
                     letterSpacing: 2,
                   ),
                 ),
@@ -83,41 +93,43 @@ class _LoginPageState extends State<LoginPage> {
                   'Játssz. Kapcsolódj. Oszd meg.',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.45),
+                    color: subtitleColor,
                     letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(height: 52),
-                // Email mező
-                _buildInput(
+                TextField(
                   controller: _emailController,
-                  hint: 'Email',
-                  icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 14),
-                // Jelszó mező
-                _buildInput(
-                  controller: _passwordController,
-                  hint: 'Jelszó',
-                  icon: Icons.lock_outline,
-                  obscure: _obscurePassword,
-                  suffix: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  style: TextStyle(color: titleColor),
+                  decoration: InputDecoration(
+                    hintText: 'Email',
+                    prefixIcon: Icon(Icons.email_outlined, size: 20),
                   ),
                 ),
-                // Hibaüzenet
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  style: TextStyle(color: titleColor),
+                  decoration: InputDecoration(
+                    hintText: 'Jelszó',
+                    prefixIcon: Icon(Icons.lock_outline, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.15),
+                      color: Colors.red.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.red.withOpacity(0.3)),
                     ),
@@ -136,34 +148,26 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
                 const SizedBox(height: 28),
-                // Bejelentkezés gomb
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _signIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1565C0),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 0,
-                    ),
                     child: _isLoading
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('Bejelentkezés', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Regisztrációs link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Nincs még fiókod? ', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+                    Text('Nincs még fiókod? ', style: TextStyle(color: secondaryTextColor, fontSize: 14)),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage())),
-                      child: const Text(
+                      child: Text(
                         'Regisztrálj itt.',
-                        style: TextStyle(color: Color(0xFF64B5F6), fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(color: linkColor, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
                   ],
@@ -173,43 +177,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInput({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-    bool obscure = false,
-    Widget? suffix,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
-        prefixIcon: Icon(icon, color: Colors.white54, size: 20),
-        suffixIcon: suffix,
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.07),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF64B5F6), width: 1.5),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
