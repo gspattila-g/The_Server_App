@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_profile.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/profile_service.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -64,6 +66,41 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  Widget _buildThemeToggle(BuildContext context, bool isDark) {
+    return GestureDetector(
+      onTap: () => context.read<SettingsProvider>().toggleTheme(!isDark),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 16,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isDark ? 'Világos mód' : 'Sötét mód',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -94,20 +131,23 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               children: [
-                const SizedBox(height: 52),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: backBtnColor,
-                        borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: backBtnColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.arrow_back, color: backIconColor, size: 20),
                       ),
-                      child: Icon(Icons.arrow_back, color: backIconColor, size: 20),
                     ),
-                  ),
+                    _buildThemeToggle(context, isDark),
+                  ],
                 ),
                 const SizedBox(height: 32),
                 Image.asset('assets/icon/icon.png', width: 80, height: 80),

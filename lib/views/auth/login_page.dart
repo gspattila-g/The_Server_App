@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../../providers/settings_provider.dart';
 import 'register_page.dart';
 import '../welcome/welcome_page.dart';
 
@@ -48,6 +50,41 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  Widget _buildThemeToggle(BuildContext context, bool isDark) {
+    return GestureDetector(
+      onTap: () => context.read<SettingsProvider>().toggleTheme(!isDark),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 16,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isDark ? 'Világos mód' : 'Sötét mód',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -76,7 +113,12 @@ class _LoginPageState extends State<LoginPage> {
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildThemeToggle(context, isDark),
+                ),
+                const SizedBox(height: 32),
                 Image.asset('assets/icon/icon.png', width: 100, height: 100),
                 const SizedBox(height: 20),
                 Text(
@@ -102,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   style: TextStyle(color: titleColor),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined, size: 20),
                   ),
@@ -114,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(color: titleColor),
                   decoration: InputDecoration(
                     hintText: 'Jelszó',
-                    prefixIcon: Icon(Icons.lock_outline, size: 20),
+                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
