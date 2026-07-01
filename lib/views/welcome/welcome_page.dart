@@ -114,8 +114,6 @@ class _WelcomePageState extends State<WelcomePage>
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navBarIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == 4) {

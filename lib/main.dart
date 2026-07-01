@@ -34,36 +34,41 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final settingsProvider = context.watch<SettingsProvider>();
 
-    // Definiáljuk a színsémákat a világos és sötét módhoz
-    // Kékes, gameres vibe - Primary: Vibráló kék, Secondary: Neon zöld/cián
+    const Color _loginBg = Color(0xFF0D0D0D);
+    const Color _loginSurface = Color(0xFF1A1A1A);
+    const Color _loginPrimary = Color(0xFF1565C0);
+    const Color _loginAccent = Color(0xFF64B5F6);
+
     final ColorScheme lightColorScheme = ColorScheme.light(
-      primary: Colors.blue[700]!, // Sötétebb, vibráló kék
-      primaryContainer: Colors.blue[200], // Világosabb kék konténerhez
-      secondary: Colors.cyan[400]!, // Neon zöldes-kékes másodlagos szín
-      secondaryContainer: Colors.cyan[100], // Világosabb cián konténerhez
-      background: Colors.grey[100]!, // Nagyon világos szürke háttér
-      surface: Colors.white, // Kártyák, felületek
-      onPrimary: Colors.white, // Szöveg a primary színen
-      onSecondary: Colors.black, // Szöveg a secondary színen
-      onBackground: Colors.black, // Szöveg a háttéren
-      onSurface: Colors.black, // Szöveg a surface-en
+      primary: _loginPrimary,
+      primaryContainer: const Color(0xFFBBDEFB),
+      secondary: const Color(0xFF1976D2),
+      secondaryContainer: const Color(0xFFE3F2FD),
+      background: const Color(0xFFF0F4F8),
+      surface: Colors.white,
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onBackground: Colors.black87,
+      onSurface: Colors.black87,
       error: Colors.red[700]!,
       onError: Colors.white,
       brightness: Brightness.light,
     );
 
     final ColorScheme darkColorScheme = ColorScheme.dark(
-      primary: Colors.blue[400]!, // Kicsit világosabb kék sötét módban
-      primaryContainer: Colors.blue[700],
-      secondary: Colors.cyan[200]!, // Világosabb neon zöldes-kékes
-      secondaryContainer: Colors.cyan[500],
-      background: Colors.grey[900]!, // Sötét szürke háttér
-      surface: Colors.grey[850]!, // Kontrasztosabb surface szín a kártyákhoz
-      onPrimary: Colors.black, // Szöveg a primary színen (pl. app bar cím)
-      onSecondary: Colors.black, // Szöveg a secondary színen
-      onBackground: Colors.white, // Szöveg a háttéren
-      onSurface: Colors.white, // Szöveg a surface-en (kártyák)
-      error: Colors.red[400]!,
+      primary: _loginPrimary,
+      primaryContainer: const Color(0xFF1A3A6E),
+      secondary: _loginAccent,
+      secondaryContainer: _loginPrimary,
+      background: _loginBg,
+      surface: _loginSurface,
+      surfaceVariant: const Color(0xFF222222),
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onBackground: Colors.white,
+      onSurface: Colors.white,
+      outline: const Color(0x1FFFFFFF),
+      error: const Color(0xFFCF6679),
       onError: Colors.black,
       brightness: Brightness.dark,
     );
@@ -77,10 +82,10 @@ class MyApp extends StatelessWidget {
         colorScheme: lightColorScheme,
         scaffoldBackgroundColor: lightColorScheme.background,
         appBarTheme: AppBarTheme(
-          backgroundColor: lightColorScheme.primary,
-          foregroundColor: lightColorScheme.onPrimary,
-          elevation: 4,
-          shadowColor: Colors.black.withOpacity(0.3),
+          backgroundColor: _loginPrimary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.black.withOpacity(0.2),
         ),
         cardTheme: CardThemeData(
           color: lightColorScheme.surface,
@@ -90,43 +95,55 @@ class MyApp extends StatelessWidget {
           ),
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
         ),
+        tabBarTheme: const TabBarThemeData(
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          dividerColor: Colors.transparent,
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: _loginPrimary,
+          unselectedItemColor: Colors.black38,
+          elevation: 8,
+          type: BottomNavigationBarType.fixed,
+        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: lightColorScheme.primary,
-            foregroundColor: lightColorScheme.onPrimary,
+            backgroundColor: _loginPrimary,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
+            elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: lightColorScheme.primary,
+            foregroundColor: _loginPrimary,
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: lightColorScheme.surfaceVariant.withOpacity(0.5),
+          fillColor: Colors.black.withOpacity(0.04),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: lightColorScheme.outline.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.black.withOpacity(0.12)),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: lightColorScheme.primary, width: 2),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide(color: _loginPrimary, width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          labelStyle: TextStyle(color: lightColorScheme.onSurface),
-          hintStyle: TextStyle(color: lightColorScheme.onSurface.withOpacity(0.6)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
         ),
-        // Tipográfia
         textTheme: const TextTheme(
           displayLarge: TextStyle(fontSize: 96, fontWeight: FontWeight.w300),
           displayMedium: TextStyle(fontSize: 60, fontWeight: FontWeight.w400),
@@ -152,56 +169,92 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: darkColorScheme,
         scaffoldBackgroundColor: darkColorScheme.background,
-        appBarTheme: AppBarTheme(
-          backgroundColor: darkColorScheme.primary,
-          foregroundColor: darkColorScheme.onPrimary,
-          elevation: 4,
-          shadowColor: Colors.black.withOpacity(0.7),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: _loginBg,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
         ),
         cardTheme: CardThemeData(
-          color: darkColorScheme.surface,
-          elevation: 2,
+          color: _loginSurface,
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.white.withOpacity(0.07)),
           ),
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
         ),
+        dividerTheme: DividerThemeData(
+          color: Colors.white.withOpacity(0.1),
+        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: darkColorScheme.primary,
-            foregroundColor: darkColorScheme.onPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            backgroundColor: _loginPrimary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: darkColorScheme.primary,
+            foregroundColor: _loginAccent,
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ),
+        tabBarTheme: const TabBarThemeData(
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white54,
+          indicatorColor: _loginAccent,
+          dividerColor: Colors.transparent,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: _loginBg,
+          selectedItemColor: _loginAccent,
+          unselectedItemColor: Colors.white38,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: const Color(0xFF1F1F1F),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          ),
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: darkColorScheme.surfaceVariant.withOpacity(0.5),
+          fillColor: Colors.white.withOpacity(0.07),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: darkColorScheme.outline.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: darkColorScheme.primary, width: 2),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide(color: _loginAccent, width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          labelStyle: TextStyle(color: darkColorScheme.onSurface),
-          hintStyle: TextStyle(color: darkColorScheme.onSurface.withOpacity(0.6)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
+          prefixIconColor: Colors.white54,
+          suffixIconColor: Colors.white54,
         ),
+        iconTheme: const IconThemeData(color: Colors.white),
         textTheme: const TextTheme(
           displayLarge: TextStyle(fontSize: 96, fontWeight: FontWeight.w300),
           displayMedium: TextStyle(fontSize: 60, fontWeight: FontWeight.w400),
@@ -220,6 +273,8 @@ class MyApp extends StatelessWidget {
           labelSmall: TextStyle(fontSize: 10, fontWeight: FontWeight.w400),
         ).apply(
           fontFamily: 'Inter',
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
         ),
       ),
       themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,

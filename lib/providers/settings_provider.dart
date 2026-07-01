@@ -5,7 +5,7 @@ class SettingsProvider extends ChangeNotifier {
   static const _keyDarkMode = 'isDarkMode';
   static const _keyNotifications = 'notificationsEnabled';
 
-  bool _isDarkMode = false;
+  bool _isDarkMode = true;
   bool _notificationsEnabled = true;
 
   bool get isDarkMode => _isDarkMode;
