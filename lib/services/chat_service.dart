@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 /// Szolgáltatás az üzenetek és chat szobák Firebase Firestore-ban való kezeléséhez.
 ///
@@ -69,15 +70,21 @@ class ChatService {
     final notifBody = imageUrl != null && message.isEmpty
         ? '📷 Képet küldött'
         : (message.length > 100 ? '${message.substring(0, 100)}...' : message);
-    await _firestore.collection('notifications').add({
-      'senderId': currentUserId,
-      'receiverId': receiverId,
-      'type': 'message',
-      'message': '$senderName: $notifBody',
-      'eventId': chatRoomId,
-      'timestamp': FieldValue.serverTimestamp(),
-      'isRead': false,
-    });
+    debugPrint('[NOTIF_DEBUG] Writing notification: sender=$currentUserId receiver=$receiverId');
+    try {
+      final docRef = await _firestore.collection('notifications').add({
+        'senderId': currentUserId,
+        'receiverId': receiverId,
+        'type': 'message',
+        'message': '$senderName: $notifBody',
+        'eventId': chatRoomId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+      debugPrint('[NOTIF_DEBUG] Notification written: ${docRef.id}');
+    } catch (e) {
+      debugPrint('[NOTIF_DEBUG] ERROR writing notification: $e');
+    }
   }
 
   Stream<QuerySnapshot> getUserChats(String userId) {
