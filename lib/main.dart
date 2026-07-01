@@ -36,13 +36,13 @@ class MyApp extends StatelessWidget {
 
     const Color _loginBg = Color(0xFF0D0D0D);
     const Color _loginSurface = Color(0xFF1A1A1A);
-    const Color _loginPrimary = Color(0xFF1565C0);
-    const Color _loginAccent = Color(0xFF64B5F6);
+    const Color _loginPrimary = Color(0xFFD32F2F);
+    const Color _loginAccent = Color(0xFFEF5350);
 
     final ColorScheme lightColorScheme = ColorScheme.light(
       primary: _loginPrimary,
       primaryContainer: const Color(0xFFBBDEFB),
-      secondary: const Color(0xFF1976D2),
+      secondary: const Color(0xFFC62828),
       secondaryContainer: const Color(0xFFE3F2FD),
       background: const Color(0xFFF0F4F8),
       surface: Colors.white,

@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
         : const [Color(0xFFF0F4F8), Color(0xFFE8EFF5), Color(0xFFF0F4F8)];
     final titleColor = isDark ? Colors.white : Colors.black87;
     final subtitleColor = isDark ? Colors.white38 : Colors.black38;
-    final linkColor = isDark ? const Color(0xFF64B5F6) : const Color(0xFF1565C0);
+    final linkColor = isDark ? const Color(0xFFEF5350) : const Color(0xFFD32F2F);
     final secondaryTextColor = isDark ? Colors.white54 : Colors.black45;
 
     return Scaffold(

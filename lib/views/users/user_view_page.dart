@@ -589,7 +589,7 @@ class _UserViewPageState extends State<UserViewPage> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(5),
                                   color: game.status == 'playing' ? Colors.green[100]
-                                      : game.status == 'completed' ? Colors.blue[100]
+                                      : game.status == 'completed' ? Colors.red[100]
                                       : game.status == 'wishlist' ? Colors.orange[100]
                                       : Colors.red[100],
                                 ),
@@ -599,7 +599,7 @@ class _UserViewPageState extends State<UserViewPage> {
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: game.status == 'playing' ? Colors.green[800]
-                                        : game.status == 'completed' ? Colors.blue[800]
+                                        : game.status == 'completed' ? Colors.red[800]
                                         : game.status == 'wishlist' ? Colors.orange[800]
                                         : Colors.red[800],
                                   ),
