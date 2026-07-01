@@ -350,7 +350,7 @@ class _CommunityPageState extends State<CommunityPage> {
                           subtitle: Text(friendProfile.bio.isNotEmpty ? friendProfile.bio : 'Nincs bemutatkozás'),
                           trailing: IconButton(
                             icon: const Icon(Icons.chat),
-                            color: Theme.of(context).primaryColor,
+                            color: Theme.of(context).colorScheme.secondary,
                             onPressed: () {
                               // Itt kellene navigálni a ChatPage-re.
                               Navigator.push(
