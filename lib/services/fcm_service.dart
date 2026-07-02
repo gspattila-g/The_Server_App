@@ -14,19 +14,29 @@ class FcmService {
   static final ValueNotifier<int?> pendingCommunityTab = ValueNotifier(null);
   static OverlayEntry? _currentBanner;
 
+  // Guard: stream listeners are added only once per app session.
+  // Without this, every login adds a new onMessage listener and a single
+  // FCM push shows N snackbars (one per accumulated listener).
+  static bool _listenersRegistered = false;
+
   static Future<void> initialize(BuildContext context) async {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
+    // Always refresh and save the token for the current user on every login.
     final token = await _messaging.getToken();
     await _saveToken(token);
-    _messaging.onTokenRefresh.listen(_saveToken);
-
-    // App háttérből notification tapra megnyitva
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // App killed állapotból notification tapra indítva
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleTap(initial);
+
+    if (_listenersRegistered) return;
+    _listenersRegistered = true;
+
+    _messaging.onTokenRefresh.listen(_saveToken);
+
+    // App háttérből notification tapra megnyitva
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // Előtérben érkező értesítések
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
