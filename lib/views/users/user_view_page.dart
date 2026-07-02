@@ -88,6 +88,7 @@ class _UserViewPageState extends State<UserViewPage> {
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });
+
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Barátsági kérés elküldve!')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hiba: $e')));
@@ -150,7 +151,9 @@ class _UserViewPageState extends State<UserViewPage> {
           .where('status', isEqualTo: 'pending')
           .get();
       if (query.docs.isEmpty) throw Exception('Kérés nem található.');
-      await query.docs.first.reference.delete();
+      for (final doc in query.docs) {
+        await doc.reference.delete();
+      }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Barátsági kérés visszavonva.')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hiba: $e')));

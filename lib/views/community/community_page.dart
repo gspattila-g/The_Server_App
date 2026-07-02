@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/presence_service.dart';
+import '../../services/fcm_service.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/status_dot.dart';
@@ -24,7 +25,9 @@ class CommunityPage extends StatefulWidget {
   State<CommunityPage> createState() => _CommunityPageState();
 }
 
-class _CommunityPageState extends State<CommunityPage> {
+class _CommunityPageState extends State<CommunityPage>
+    with TickerProviderStateMixin {
+  late final TabController _tabController;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
   final _profileService = ProfileService();
@@ -40,15 +43,27 @@ class _CommunityPageState extends State<CommunityPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _searchController.addListener(_onSearchChanged);
+    FcmService.pendingCommunityTab.addListener(_onPendingCommunityTab);
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    FcmService.pendingCommunityTab.removeListener(_onPendingCommunityTab);
     for (final sub in _statusSubs) sub.cancel();
     super.dispose();
+  }
+
+  void _onPendingCommunityTab() {
+    final tab = FcmService.pendingCommunityTab.value;
+    if (tab != null && mounted) {
+      _tabController.animateTo(tab);
+      FcmService.pendingCommunityTab.value = null;
+    }
   }
 
   void _updateStatusListeners(List<UserProfile> friends) {
@@ -90,13 +105,12 @@ class _CommunityPageState extends State<CommunityPage> {
       );
     }
 
-    return DefaultTabController(
-      length: 2, // Két fül: Kérések és Barátok
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: const Text('Barátok'),
           actions: const [NotificationBell()],
           bottom: TabBar(
+            controller: _tabController,
             labelColor: Theme.of(context).colorScheme.onPrimary,
             unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
             indicatorColor: Theme.of(context).colorScheme.secondary,
@@ -107,12 +121,12 @@ class _CommunityPageState extends State<CommunityPage> {
           ),
         ),
         body: TabBarView(
+          controller: _tabController,
           children: [
             _buildFriendsTab(),
             _buildRequestsTab(),
           ],
         ),
-      ),
     );
   }
 
@@ -468,10 +482,24 @@ class _CommunityPageState extends State<CommunityPage> {
     }
   }
 
-  /// Elutasít egy bejövő barátsági kérést.
+  /// Elutasít egy bejövő barátsági kérést (az összes pending doc-ot törli a küldőtől).
   Future<void> _rejectFriendRequest(String requestId) async {
     try {
-      await _firestore.collection('friendRequests').doc(requestId).update({'status': 'rejected'});
+      final reqDoc = await _firestore.collection('friendRequests').doc(requestId).get();
+      final senderId = reqDoc.data()?['senderId'] as String?;
+      if (senderId != null) {
+        final allPending = await _firestore
+            .collection('friendRequests')
+            .where('senderId', isEqualTo: senderId)
+            .where('receiverId', isEqualTo: _currentUserId)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        for (final doc in allPending.docs) {
+          await doc.reference.update({'status': 'rejected'});
+        }
+      } else {
+        await _firestore.collection('friendRequests').doc(requestId).update({'status': 'rejected'});
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Barátsági kérés elutasítva.')),
       );

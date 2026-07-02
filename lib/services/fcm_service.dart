@@ -11,6 +11,7 @@ class FcmService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static final ValueNotifier<int?> pendingTabSwitch = ValueNotifier(null);
+  static final ValueNotifier<int?> pendingCommunityTab = ValueNotifier(null);
   static OverlayEntry? _currentBanner;
 
   static Future<void> initialize(BuildContext context) async {
@@ -96,8 +97,12 @@ class FcmService {
   }
 
   static void _handleTap(RemoteMessage message) {
-    if (message.data['type'] == 'message') {
+    final type = message.data['type'];
+    if (type == 'message') {
       pendingTabSwitch.value = 2;
+    } else if (type == 'friend_request') {
+      pendingCommunityTab.value = 1; // Kérések sub-tab
+      pendingTabSwitch.value = 1;    // Community főtab
     }
   }
 
