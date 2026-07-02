@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore importálása
 import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth a jelenlegi felhasználó UID-jének lekérdezéséhez
@@ -85,40 +87,72 @@ class _UsersPageState extends State<UsersPage> {
     });
   }
 
-  // Segédmetódus a barátság státuszának streameléséhez két felhasználó között
+  // Segédmetódus a barátság státuszának streameléséhez két felhasználó között.
+  // Két külön Firestore query-t használ, mert a Firestore nem enged két whereIn-t
+  // különböző mezőkön ugyanabban a query-ben.
   Stream<String> _getFriendshipStatusStream(String otherUserId) {
     if (_currentUserId == null || otherUserId == _currentUserId) {
-      return Stream.value('self'); // Saját profil vagy érvénytelen ID
+      return Stream.value('self');
     }
 
-    // Figyeljük a barátsági kéréseket, ahol az egyik fél mi vagyunk, a másik a megtekintett felhasználó
-    return _firestore
-        .collection('friendRequests')
-        .where('senderId', whereIn: [_currentUserId, otherUserId])
-        .where('receiverId', whereIn: [_currentUserId, otherUserId])
-        .snapshots()
-        .map((snapshot) {
-      if (snapshot.docs.isEmpty) {
-        // Nincs aktív kérés vagy elfogadott barátság közöttük
-        return 'none';
-      } else {
-        final doc = snapshot.docs.first;
-        final data = doc.data();
-        final status = data['status'] as String;
-        final senderId = data['senderId'] as String;
+    String sent = 'none';
+    String received = 'none';
+    bool sentReady = false;
+    bool receivedReady = false;
+    StreamSubscription? sentSub;
+    StreamSubscription? receivedSub;
+    StreamController<String>? controller;
 
-        if (status == 'accepted') {
-          return 'friends';
-        } else if (status == 'pending') {
-          if (senderId == _currentUserId) {
-            return 'sent'; // Mi küldtük a kérést
-          } else {
-            return 'received'; // Mi kaptuk a kérést
-          }
-        }
-        return 'none'; // Valamilyen ismeretlen státusz
+    void emit() {
+      if (!sentReady || !receivedReady) return;
+      final String status;
+      if (sent == 'accepted' || received == 'accepted') {
+        status = 'friends';
+      } else if (sent == 'pending') {
+        status = 'sent';
+      } else if (received == 'pending') {
+        status = 'received';
+      } else {
+        status = 'none';
       }
-    });
+      controller?.add(status);
+    }
+
+    controller = StreamController<String>(
+      onListen: () {
+        sentSub = _firestore
+            .collection('friendRequests')
+            .where('senderId', isEqualTo: _currentUserId)
+            .where('receiverId', isEqualTo: otherUserId)
+            .snapshots()
+            .listen((snap) {
+          sentReady = true;
+          sent = snap.docs.isEmpty
+              ? 'none'
+              : (snap.docs.first.data()['status'] as String? ?? 'none');
+          emit();
+        });
+        receivedSub = _firestore
+            .collection('friendRequests')
+            .where('senderId', isEqualTo: otherUserId)
+            .where('receiverId', isEqualTo: _currentUserId)
+            .snapshots()
+            .listen((snap) {
+          receivedReady = true;
+          received = snap.docs.isEmpty
+              ? 'none'
+              : (snap.docs.first.data()['status'] as String? ?? 'none');
+          emit();
+        });
+      },
+      onCancel: () {
+        sentSub?.cancel();
+        receivedSub?.cancel();
+        controller?.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// Barátsági kérés elküldése.

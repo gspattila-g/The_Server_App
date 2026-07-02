@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,27 +38,71 @@ class _UserViewPageState extends State<UserViewPage> {
 
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
+  // Két külön Firestore query-t használ, mert a Firestore nem enged két whereIn-t
+  // különböző mezőkön ugyanabban a query-ben.
   Stream<String> _getFriendshipStatusStream() {
     if (_currentUserId == null || widget.userId == _currentUserId) {
       return Stream.value('self');
     }
-    return _firestore
-        .collection('friendRequests')
-        .where('senderId', whereIn: [_currentUserId, widget.userId])
-        .where('receiverId', whereIn: [_currentUserId, widget.userId])
-        .snapshots()
-        .map((snapshot) {
-      if (snapshot.docs.isEmpty) return 'none';
-      final doc = snapshot.docs.first;
-      final data = doc.data();
-      final status = data['status'] as String;
-      final senderId = data['senderId'] as String;
-      if (status == 'accepted') return 'friends';
-      if (status == 'pending') {
-        return senderId == _currentUserId ? 'sent' : 'received';
+
+    String sent = 'none';
+    String received = 'none';
+    bool sentReady = false;
+    bool receivedReady = false;
+    StreamSubscription? sentSub;
+    StreamSubscription? receivedSub;
+    StreamController<String>? controller;
+
+    void emit() {
+      if (!sentReady || !receivedReady) return;
+      final String status;
+      if (sent == 'accepted' || received == 'accepted') {
+        status = 'friends';
+      } else if (sent == 'pending') {
+        status = 'sent';
+      } else if (received == 'pending') {
+        status = 'received';
+      } else {
+        status = 'none';
       }
-      return 'none';
-    });
+      controller?.add(status);
+    }
+
+    controller = StreamController<String>(
+      onListen: () {
+        sentSub = _firestore
+            .collection('friendRequests')
+            .where('senderId', isEqualTo: _currentUserId)
+            .where('receiverId', isEqualTo: widget.userId)
+            .snapshots()
+            .listen((snap) {
+          sentReady = true;
+          sent = snap.docs.isEmpty
+              ? 'none'
+              : (snap.docs.first.data()['status'] as String? ?? 'none');
+          emit();
+        });
+        receivedSub = _firestore
+            .collection('friendRequests')
+            .where('senderId', isEqualTo: widget.userId)
+            .where('receiverId', isEqualTo: _currentUserId)
+            .snapshots()
+            .listen((snap) {
+          receivedReady = true;
+          received = snap.docs.isEmpty
+              ? 'none'
+              : (snap.docs.first.data()['status'] as String? ?? 'none');
+          emit();
+        });
+      },
+      onCancel: () {
+        sentSub?.cancel();
+        receivedSub?.cancel();
+        controller?.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<void> _sendFriendRequest() async {
