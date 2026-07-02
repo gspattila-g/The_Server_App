@@ -15,6 +15,11 @@ class NotificationBell extends StatefulWidget {
 }
 
 class _NotificationBellState extends State<NotificationBell> {
+  // Shared across all NotificationBell instances to prevent duplicate snackbars
+  // from IndexedStack keeping all tab pages alive simultaneously.
+  static final Set<String> _globalShownIds = {};
+  static String? _globalActiveUid;
+
   final _notificationService = NotificationService();
   StreamSubscription<User?>? _authSub;
   StreamSubscription<List<AppNotification>>? _notifSub;
@@ -45,6 +50,12 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   void _subscribeToNotifications(String userId) {
+    // When switching to a different account, clear the global dedup set
+    if (_globalActiveUid != userId) {
+      _globalShownIds.clear();
+      _globalActiveUid = userId;
+    }
+
     _notifSub = _notificationService
         .getNotificationsForUser(userId)
         .listen((notifications) {
@@ -54,8 +65,13 @@ class _NotificationBellState extends State<NotificationBell> {
       final newCount = unread.length;
 
       if (!_initialLoadDone) {
-        _seenIds = notifications.map((n) => n.id ?? '').toSet();
-        _initialLoadDone = true;
+        // Accumulate IDs across multiple initial emissions (handles Firestore
+        // sending an empty cache snapshot before the real server snapshot).
+        _seenIds = {
+          ..._seenIds,
+          ...notifications.map((n) => n.id ?? '').where((id) => id.isNotEmpty),
+        };
+        if (notifications.isNotEmpty) _initialLoadDone = true;
         setState(() => _count = newCount);
         return;
       }
@@ -64,8 +80,13 @@ class _NotificationBellState extends State<NotificationBell> {
           .where((n) => !_seenIds.contains(n.id ?? ''))
           .toList();
 
-      if (newNotifs.isNotEmpty) {
-        _showSnackbar(newNotifs.first);
+      for (final notif in newNotifs) {
+        final id = notif.id ?? '';
+        if (id.isNotEmpty && !_globalShownIds.contains(id)) {
+          _globalShownIds.add(id);
+          _showSnackbar(notif);
+          break;
+        }
       }
 
       _seenIds = notifications.map((n) => n.id ?? '').toSet();
