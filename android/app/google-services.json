@@ -2,7 +2,8 @@
   "project_info": {
     "project_number": "720657901610",
     "project_id": "theserver-494f0",
-    "storage_bucket": "theserver-494f0.firebasestorage.app"
+    "storage_bucket": "theserver-494f0.firebasestorage.app",
+    "firebase_url": "https://theserver-494f0-default-rtdb.europe-west1.firebasedatabase.app"
   },
   "client": [
     {

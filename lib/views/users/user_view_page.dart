@@ -10,6 +10,7 @@ import '../../services/profile_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/game_service.dart';
 import '../../services/block_service.dart';
+import '../../services/presence_service.dart';
 import '../chat/chat_page.dart';
 
 class UserViewPage extends StatefulWidget {
@@ -363,14 +364,20 @@ class _UserViewPageState extends State<UserViewPage> {
                   const SizedBox(height: 16),
                   Text(userProfile.displayName, style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      StatusDot(status: userProfile.status, size: 12),
-                      const SizedBox(width: 6),
-                      Text(StatusDot.labelFor(userProfile.status),
-                          style: TextStyle(color: StatusDot.colorFor(userProfile.status), fontWeight: FontWeight.bold)),
-                    ],
+                  StreamBuilder<String>(
+                    stream: PresenceService.statusStream(widget.userId),
+                    builder: (context, statusSnap) {
+                      final status = statusSnap.data ?? userProfile.status;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          StatusDot(status: status, size: 12),
+                          const SizedBox(width: 6),
+                          Text(StatusDot.labelFor(status),
+                              style: TextStyle(color: StatusDot.colorFor(status), fontWeight: FontWeight.bold)),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   Row(

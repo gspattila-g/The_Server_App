@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../services/chat_service.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
+import '../../services/presence_service.dart';
 import '../../widgets/status_dot.dart';
 import '../../widgets/fullscreen_image_page.dart';
 import '../users/user_view_page.dart';
@@ -295,7 +296,10 @@ class _ChatPageState extends State<ChatPage> {
             stream: _profileService.getProfileStream(widget.receiverUserId),
             builder: (context, snapshot) {
               final profile = snapshot.data ?? _receiverProfile;
-              final status = profile?.status ?? 'offline';
+              return StreamBuilder<String>(
+                stream: PresenceService.statusStream(widget.receiverUserId),
+                builder: (context, statusSnap) {
+                  final status = statusSnap.data ?? profile?.status ?? 'offline';
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -320,6 +324,8 @@ class _ChatPageState extends State<ChatPage> {
                     ],
                   ),
                 ],
+              );
+                },
               );
             },
           ),

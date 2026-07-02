@@ -9,6 +9,7 @@ import '../comments/comments_page.dart';
 import '../auth/login_page.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
+import '../../services/presence_service.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/status_dot.dart';
 
@@ -289,34 +290,40 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 8),
                 // Státusz toggle
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    StatusDot(status: _userProfile?.status ?? 'offline', size: 12),
-                    const SizedBox(width: 6),
-                    Text(
-                      StatusDot.labelFor(_userProfile?.status ?? 'offline'),
-                      style: TextStyle(
-                        color: StatusDot.colorFor(_userProfile?.status ?? 'offline'),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    PopupMenuButton<String>(
-                      tooltip: 'Státusz módosítása',
-                      icon: const Icon(Icons.edit, size: 18),
-                      onSelected: (value) async {
-                        if (_currentUser != null) {
-                          await _profileService.setStatus(_currentUser!.uid, value);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(value: 'online', child: Row(children: [StatusDot(status: 'online'), const SizedBox(width: 8), const Text('Online')])),
-                        PopupMenuItem(value: 'busy', child: Row(children: [StatusDot(status: 'busy'), const SizedBox(width: 8), const Text('Elfoglalt')])),
-                        PopupMenuItem(value: 'offline', child: Row(children: [StatusDot(status: 'offline'), const SizedBox(width: 8), const Text('Offline')])),
+                StreamBuilder<String>(
+                  stream: _currentUser != null ? PresenceService.statusStream(_currentUser!.uid) : const Stream.empty(),
+                  builder: (context, statusSnap) {
+                    final status = statusSnap.data ?? _userProfile?.status ?? 'offline';
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        StatusDot(status: status, size: 12),
+                        const SizedBox(width: 6),
+                        Text(
+                          StatusDot.labelFor(status),
+                          style: TextStyle(
+                            color: StatusDot.colorFor(status),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        PopupMenuButton<String>(
+                          tooltip: 'Státusz módosítása',
+                          icon: const Icon(Icons.edit, size: 18),
+                          onSelected: (value) {
+                            if (_currentUser != null) {
+                              PresenceService.setStatus(_currentUser!.uid, value);
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            PopupMenuItem(value: 'online', child: Row(children: [StatusDot(status: 'online'), const SizedBox(width: 8), const Text('Online')])),
+                            PopupMenuItem(value: 'busy', child: Row(children: [StatusDot(status: 'busy'), const SizedBox(width: 8), const Text('Elfoglalt')])),
+                            PopupMenuItem(value: 'offline', child: Row(children: [StatusDot(status: 'offline'), const SizedBox(width: 8), const Text('Offline')])),
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Row(

@@ -10,6 +10,7 @@ import '../../models/game.dart';
 import '../../services/chat_service.dart';
 import '../../services/game_service.dart';
 import '../../services/block_service.dart';
+import '../../services/presence_service.dart';
 import '../chat/chat_page.dart';
 import '../users/user_view_page.dart';
 
@@ -42,6 +43,7 @@ class _UsersPageState extends State<UsersPage> {
 
   final _blockService = BlockService();
   Set<String> _hiddenUserIds = {};
+  final _statusStreams = <String, Stream<String>>{};
 
   // Szűrő kapcsoló állapota: csak a közös játékokkal rendelkező felhasználókat mutatjuk.
   bool _showCommonGamesOnly = false;
@@ -455,21 +457,27 @@ class _UsersPageState extends State<UsersPage> {
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                           elevation: 2,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Lekerekített sarkok
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
-                            leading: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: StatusDot.colorFor(userProfile.status),
-                                  width: 3,
-                                ),
-                              ),
-                              child: ProfileAvatar(
-                                imageUrl: userProfile.profileImageUrl,
-                                fallbackLetter: userProfile.displayName,
-                                radius: 20,
-                              ),
+                            leading: StreamBuilder<String>(
+                              stream: PresenceService.statusStream(userProfile.uid),
+                              builder: (context, statusSnap) {
+                                final status = statusSnap.data ?? userProfile.status;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: StatusDot.colorFor(status),
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: ProfileAvatar(
+                                    imageUrl: userProfile.profileImageUrl,
+                                    fallbackLetter: userProfile.displayName,
+                                    radius: 20,
+                                  ),
+                                );
+                              },
                             ),
                             title: Text(userProfile.displayName, style: Theme.of(context).textTheme.titleMedium),
                             subtitle: Column(
@@ -541,7 +549,7 @@ class _UsersPageState extends State<UsersPage> {
                                 } else if (friendshipStatus == 'sent') {
                                   return IconButton(
                                     icon: const Icon(Icons.hourglass_empty),
-                                    color: StatusDot.colorFor(userProfile.status),
+                                    color: Theme.of(context).colorScheme.secondary,
                                     onPressed: () => _cancelFriendRequest(userProfile.uid),
                                     tooltip: 'Függőben lévő kérés visszavonása',
                                   );

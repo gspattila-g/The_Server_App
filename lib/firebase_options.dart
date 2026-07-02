@@ -56,6 +56,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '720657901610',
     projectId: 'theserver-494f0',
     storageBucket: 'theserver-494f0.firebasestorage.app',
+    databaseURL: 'https://theserver-494f0-default-rtdb.europe-west1.firebasedatabase.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(

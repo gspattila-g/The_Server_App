@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../services/fcm_service.dart';
+import '../../services/presence_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/chat_service.dart';
 import '../home/home_page.dart';
@@ -52,14 +53,16 @@ class _WelcomePageState extends State<WelcomePage>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FcmService.initialize(context);
-      if (_uid != null) _profileService.setStatus(_uid!, 'online');
+      if (_uid != null) {
+        PresenceService.initialize(_uid!);
+      }
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (_uid != null) _profileService.setStatus(_uid!, 'offline');
+    if (_uid != null) PresenceService.setOffline(_uid!);
     super.dispose();
   }
 
@@ -68,9 +71,10 @@ class _WelcomePageState extends State<WelcomePage>
     final uid = _uid;
     if (uid == null) return;
     if (state == AppLifecycleState.resumed) {
-      _profileService.setStatus(uid, 'online');
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      _profileService.setStatus(uid, 'offline');
+      PresenceService.initialize(uid);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      PresenceService.setStatus(uid, 'offline');
     }
   }
 

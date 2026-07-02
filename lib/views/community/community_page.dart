@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/user_profile.dart';
 import '../../services/profile_service.dart';
+import '../../services/presence_service.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/status_dot.dart';
@@ -25,7 +26,6 @@ class _CommunityPageState extends State<CommunityPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
   final _profileService = ProfileService();
-  final _statusStreams = <String, Stream<UserProfile?>>{};
 
   // Szövegvezérlő a barátok keresőmezőjéhez.
   final TextEditingController _searchController = TextEditingController();
@@ -318,10 +318,10 @@ class _CommunityPageState extends State<CommunityPage> {
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
                         elevation: 2,
                         child: ListTile(
-                          leading: StreamBuilder<UserProfile?>(
-                            stream: _statusStreams.putIfAbsent(friendProfile.uid, () => _profileService.getProfileStream(friendProfile.uid)),
+                          leading: StreamBuilder<String>(
+                            stream: PresenceService.statusStream(friendProfile.uid),
                             builder: (context, statusSnap) {
-                              final status = statusSnap.data?.status ?? friendProfile.status;
+                              final status = statusSnap.data ?? friendProfile.status;
                               return Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
