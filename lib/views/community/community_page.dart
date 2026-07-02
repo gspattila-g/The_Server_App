@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,15 +29,17 @@ class _CommunityPageState extends State<CommunityPage> {
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
   final _profileService = ProfileService();
 
-  // Szövegvezérlő a barátok keresőmezőjéhez.
   final TextEditingController _searchController = TextEditingController();
-  // A barátok keresési lekérdezése.
   String _searchQuery = '';
+
+  // Élő státuszok és a hozzájuk tartozó RTDB feliratkozások
+  final Map<String, String> _liveStatuses = {};
+  final List<StreamSubscription<String>> _statusSubs = [];
+  Set<String> _trackedUids = {};
 
   @override
   void initState() {
     super.initState();
-    // Figyeljük a barátok keresőmezőjének változásait.
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -43,7 +47,31 @@ class _CommunityPageState extends State<CommunityPage> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    for (final sub in _statusSubs) sub.cancel();
     super.dispose();
+  }
+
+  void _updateStatusListeners(List<UserProfile> friends) {
+    final newUids = friends.map((f) => f.uid).toSet();
+    if (newUids == _trackedUids) return;
+    _trackedUids = newUids;
+    for (final sub in _statusSubs) sub.cancel();
+    _statusSubs.clear();
+    for (final friend in friends) {
+      final sub = PresenceService.statusStream(friend.uid).listen((status) {
+        if (mounted && _liveStatuses[friend.uid] != status) {
+          setState(() => _liveStatuses[friend.uid] = status);
+        }
+      });
+      _statusSubs.add(sub);
+    }
+  }
+
+  int _statusOrder(String uid) {
+    final s = _liveStatuses[uid] ?? 'offline';
+    if (s == 'online') return 0;
+    if (s == 'busy') return 1;
+    return 2;
   }
 
   /// Kezeli a barátok keresőmezőjének szövegének változásait.
@@ -290,16 +318,14 @@ class _CommunityPageState extends State<CommunityPage> {
                     return const Center(child: Text('Hiba: Nem sikerült betölteni a barátok profiljait.'));
                   }
 
-                  // Szűrjük a barátokat a keresési lekérdezés alapján
                   final List<UserProfile> allFriends = friendsProfileSnapshot.data!;
+                  _updateStatusListeners(allFriends);
+
                   final List<UserProfile> filteredFriends = allFriends.where((friend) {
-                    if (_searchQuery.isEmpty) {
-                      return true; // Ha üres a kereső, minden barátot megmutatunk
-                    } else {
-                      // Ellenőrizzük, hogy a displayName tartalmazza-e a keresési lekérdezést
-                      return friend.displayName.toLowerCase().contains(_searchQuery);
-                    }
-                  }).toList();
+                    if (_searchQuery.isEmpty) return true;
+                    return friend.displayName.toLowerCase().contains(_searchQuery);
+                  }).toList()
+                    ..sort((a, b) => _statusOrder(a.uid).compareTo(_statusOrder(b.uid)));
 
                   if (filteredFriends.isEmpty) {
                     return Center(child: Text(
