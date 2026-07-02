@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../models/notification.dart';
+import '../../navigation_key.dart';
 import '../../services/fcm_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/presence_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/chat_service.dart';
@@ -31,11 +35,14 @@ class _WelcomePageState extends State<WelcomePage>
   int _currentIndex = 0;
   final _profileService = ProfileService();
   final _chatService = ChatService();
+  final _notificationService = NotificationService();
 
   late final List<Widget> _pages;
-  // UID-t initState-ben tároljuk, hogy dispose()-ban is elérhető legyen
-  // akkor is, ha a Firebase Auth már kijelentkeztette a usert
   String? _uid;
+
+  StreamSubscription<List<AppNotification>>? _notifSub;
+  Set<String> _seenNotifIds = {};
+  bool _notifInitDone = false;
 
   @override
   void initState() {
@@ -56,8 +63,64 @@ class _WelcomePageState extends State<WelcomePage>
       FcmService.initialize(context);
       if (_uid != null) {
         PresenceService.initialize(_uid!);
+        _subscribeToNotifications(_uid!);
       }
     });
+  }
+
+  void _subscribeToNotifications(String uid) {
+    _notifSub?.cancel();
+    _seenNotifIds = {};
+    _notifInitDone = false;
+
+    _notifSub = _notificationService
+        .getNotificationsForUser(uid)
+        .listen((notifications) {
+      if (!mounted) return;
+
+      if (!_notifInitDone) {
+        _seenNotifIds = {
+          ..._seenNotifIds,
+          ...notifications.map((n) => n.id ?? '').where((id) => id.isNotEmpty),
+        };
+        if (notifications.isNotEmpty) _notifInitDone = true;
+        return;
+      }
+
+      final newNotifs = notifications
+          .where((n) => !_seenNotifIds.contains(n.id ?? ''))
+          .toList();
+
+      if (newNotifs.isNotEmpty) _showNotifSnackbar(newNotifs.first);
+
+      _seenNotifIds = notifications.map((n) => n.id ?? '').toSet();
+    }, onError: (_) {});
+  }
+
+  void _showNotifSnackbar(AppNotification notification) {
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+
+    final icons = {
+      'friend_request': Icons.person_add,
+      'like': Icons.favorite,
+      'comment': Icons.comment,
+    };
+    final icon = icons[notification.type] ?? Icons.notifications;
+
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(notification.message)),
+          ],
+        ),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _onPendingTabSwitch() {
@@ -70,6 +133,7 @@ class _WelcomePageState extends State<WelcomePage>
 
   @override
   void dispose() {
+    _notifSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     FcmService.pendingTabSwitch.removeListener(_onPendingTabSwitch);
     if (_uid != null) PresenceService.setOffline(_uid!);
