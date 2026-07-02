@@ -565,50 +565,67 @@ class _CommentsPageState extends State<CommentsPage> {
       appBar: AppBar(title: const Text('Poszt')),
       body: Column(
         children: [
-          // Post card (real-time: like frissül azonnal)
-          StreamBuilder<DocumentSnapshot>(
-            stream: _firestore.collection('posts').doc(widget.postId).snapshots(),
-            builder: (context, postSnap) {
-              if (!postSnap.hasData || !postSnap.data!.exists) {
-                return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
-              }
-              final data = postSnap.data!.data() as Map<String, dynamic>;
-              return _buildPostCard(data);
-            },
-          ),
-          const Divider(height: 1),
-          // Kommentek listája
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('posts')
-                  .doc(widget.postId)
-                  .collection('comments')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Hiba: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Még nincs komment. Légy te az első!'));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = snapshot.data!.docs[index];
-                    final commentData = doc.data() as Map<String, dynamic>;
-                    return _buildCommentItem(commentData, doc.id);
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: _firestore.collection('posts').doc(widget.postId).snapshots(),
+              builder: (context, postSnap) {
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _firestore
+                      .collection('posts')
+                      .doc(widget.postId)
+                      .collection('comments')
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
+                  builder: (context, commentsSnap) {
+                    final List<Widget> slivers = [];
+
+                    if (!postSnap.hasData || !postSnap.data!.exists) {
+                      slivers.add(const SliverToBoxAdapter(
+                        child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+                      ));
+                    } else {
+                      final data = postSnap.data!.data() as Map<String, dynamic>;
+                      slivers.add(SliverToBoxAdapter(child: _buildPostCard(data)));
+                    }
+
+                    slivers.add(const SliverToBoxAdapter(child: Divider(height: 1)));
+
+                    if (commentsSnap.connectionState == ConnectionState.waiting) {
+                      slivers.add(const SliverToBoxAdapter(
+                        child: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+                      ));
+                    } else if (commentsSnap.hasError) {
+                      slivers.add(SliverToBoxAdapter(
+                        child: Center(child: Text('Hiba: ${commentsSnap.error}')),
+                      ));
+                    } else if (!commentsSnap.hasData || commentsSnap.data!.docs.isEmpty) {
+                      slivers.add(const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(child: Text('Még nincs komment. Légy te az első!')),
+                        ),
+                      ));
+                    } else {
+                      slivers.add(SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final doc = commentsSnap.data!.docs[index];
+                            final commentData = doc.data() as Map<String, dynamic>;
+                            return _buildCommentItem(commentData, doc.id);
+                          },
+                          childCount: commentsSnap.data!.docs.length,
+                        ),
+                      ));
+                    }
+
+                    slivers.add(const SliverPadding(padding: EdgeInsets.only(bottom: 8)));
+
+                    return CustomScrollView(slivers: slivers);
                   },
                 );
               },
             ),
           ),
-          // Kiválasztott kép előnézete
           if (_selectedImage != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -638,36 +655,38 @@ class _CommentsPageState extends State<CommentsPage> {
                 ],
               ),
             ),
-          // Komment beviteli mező
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _isSending ? null : _pickImage,
-                  icon: const Icon(Icons.image),
-                  color: Theme.of(context).primaryColor,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    enabled: !_isSending,
-                    decoration: InputDecoration(
-                      hintText: 'Írj kommentet...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: _isSending ? null : _pickImage,
+                    icon: const Icon(Icons.image),
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _commentController,
+                      enabled: !_isSending,
+                      decoration: InputDecoration(
+                        hintText: 'Írj kommentet...',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _isSending
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : IconButton(
-                        onPressed: _addComment,
-                        icon: const Icon(Icons.send),
-                        color: Theme.of(context).primaryColor,
-                      ),
-              ],
+                  const SizedBox(width: 8),
+                  _isSending
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                      : IconButton(
+                          onPressed: _addComment,
+                          icon: const Icon(Icons.send),
+                          color: Theme.of(context).primaryColor,
+                        ),
+                ],
+              ),
             ),
           ),
         ],
