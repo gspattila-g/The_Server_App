@@ -8,6 +8,7 @@ import '../settings/settings_page.dart';
 import '../comments/comments_page.dart';
 import '../auth/login_page.dart';
 import '../../models/user_profile.dart';
+import '../../services/fcm_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/presence_service.dart';
 import '../../widgets/notification_bell.dart';
@@ -135,6 +136,9 @@ class _ProfilePageState extends State<ProfilePage> {
         await _profileService.setStatus(uid, 'offline');
       } catch (_) {}
     }
+    try {
+      await FcmService.deleteToken();
+    } catch (_) {}
     try {
       await FirebaseAuth.instance.signOut();
     } catch (e) {
