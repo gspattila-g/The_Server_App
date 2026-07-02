@@ -9,6 +9,7 @@ import 'views/welcome/welcome_page.dart';
 import 'views/splash/splash_page.dart';
 import 'firebase_options.dart';
 import 'providers/settings_provider.dart';
+import 'navigation_key.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -75,6 +76,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'Gamer App',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       // Világos téma beállításai
       theme: ThemeData(

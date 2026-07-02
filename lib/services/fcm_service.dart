@@ -4,43 +4,28 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation_key.dart';
+
 class FcmService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static final ValueNotifier<int?> pendingTabSwitch = ValueNotifier(null);
-
-  static OverlayState? _overlayState;
   static OverlayEntry? _currentBanner;
 
   static Future<void> initialize(BuildContext context) async {
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('FCM engedély megtagadva.');
-      return;
-    }
+    await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
     final token = await _messaging.getToken();
     await _saveToken(token);
     _messaging.onTokenRefresh.listen(_saveToken);
 
-    _overlayState = Overlay.of(context);
-
     // App háttérből notification tapra megnyitva
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _handleTap(message);
-    });
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // App killed állapotból notification tapra indítva
     final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (initial != null) {
-      _handleTap(initial);
-    }
+    if (initial != null) _handleTap(initial);
 
     // Előtérben érkező értesítések
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -48,16 +33,21 @@ class FcmService {
       if (notification == null) return;
 
       if (message.data['type'] == 'message') {
-        _showChatBanner(notification.title ?? 'Új üzenet', notification.body ?? '');
+        _showChatBanner(
+          notification.title ?? 'Új üzenet',
+          notification.body ?? '',
+        );
       } else {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        final ctx = navigatorKey.currentContext;
+        if (ctx == null) return;
+        ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(notification.title ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(notification.title ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 if (notification.body != null) Text(notification.body!),
               ],
             ),
@@ -69,6 +59,9 @@ class FcmService {
   }
 
   static void _showChatBanner(String title, String body) {
+    final overlay = navigatorKey.currentState?.overlay;
+    if (overlay == null) return;
+
     _currentBanner?.remove();
     _currentBanner = null;
 
@@ -90,7 +83,7 @@ class FcmService {
     );
 
     _currentBanner = entry;
-    _overlayState?.insert(entry);
+    overlay.insert(entry);
 
     Future.delayed(const Duration(seconds: 5), () {
       if (_currentBanner == entry) {
@@ -195,7 +188,8 @@ class _InAppChatBannerState extends State<_InAppChatBanner>
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFD32F2F), width: 1.2),
+                border:
+                    Border.all(color: const Color(0xFFD32F2F), width: 1.2),
               ),
               child: Row(
                 children: [
@@ -205,7 +199,8 @@ class _InAppChatBannerState extends State<_InAppChatBanner>
                       color: Color(0xFFD32F2F),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.chat, color: Colors.white, size: 18),
+                    child:
+                        const Icon(Icons.chat, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -237,7 +232,8 @@ class _InAppChatBannerState extends State<_InAppChatBanner>
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: widget.onDismiss,
-                    child: const Icon(Icons.close, color: Colors.white38, size: 20),
+                    child: const Icon(Icons.close,
+                        color: Colors.white38, size: 20),
                   ),
                 ],
               ),

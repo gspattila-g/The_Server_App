@@ -41,7 +41,7 @@ exports.sendPushNotification = functions.firestore
         },
         android: {
           priority: 'high',
-          notification: { channelId: 'default' },
+          notification: { channelId: 'high_importance_channel' },
         },
       });
     } catch (error) {
