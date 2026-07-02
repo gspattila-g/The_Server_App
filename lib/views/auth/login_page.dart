@@ -19,8 +19,16 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
   Future<void> _signIn() async {
     setState(() { _errorMessage = null; _isLoading = true; });
+    if (!_isValidEmail(_emailController.text.trim())) {
+      setState(() { _isLoading = false; _errorMessage = 'Érvénytelen e-mail cím formátum.'; });
+      return;
+    }
     try {
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -35,11 +43,36 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      setState(() => _errorMessage = e.message);
-      if (mounted) setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        switch (e.code) {
+          case 'invalid-email':
+            _errorMessage = 'Érvénytelen e-mail cím formátum.';
+            break;
+          case 'user-not-found':
+            _errorMessage = 'Nem található fiók ezzel az e-mail címmel.';
+            break;
+          case 'wrong-password':
+            _errorMessage = 'Helytelen jelszó.';
+            break;
+          case 'invalid-credential':
+            _errorMessage = 'Hibás e-mail cím vagy jelszó.';
+            break;
+          case 'user-disabled':
+            _errorMessage = 'Ez a fiók le van tiltva.';
+            break;
+          case 'too-many-requests':
+            _errorMessage = 'Túl sok sikertelen kísérlet. Próbáld újra később.';
+            break;
+          case 'network-request-failed':
+            _errorMessage = 'Hálózati hiba. Ellenőrizd az internetkapcsolatot.';
+            break;
+          default:
+            _errorMessage = 'Bejelentkezési hiba. Kérjük próbáld újra.';
+        }
+      });
     } catch (e) {
-      setState(() => _errorMessage = 'Ismeretlen hiba: $e');
-      if (mounted) setState(() => _isLoading = false);
+      setState(() { _errorMessage = 'Ismeretlen hiba történt.'; _isLoading = false; });
     }
   }
 

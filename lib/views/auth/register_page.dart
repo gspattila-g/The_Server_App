@@ -21,8 +21,16 @@ class _RegisterPageState extends State<RegisterPage> {
 
   final ProfileService _profileService = ProfileService();
 
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
   Future<void> _register() async {
     setState(() { _errorMessage = null; _isLoading = true; });
+    if (!_isValidEmail(_emailController.text.trim())) {
+      setState(() { _isLoading = false; _errorMessage = 'Érvénytelen e-mail cím formátum.'; });
+      return;
+    }
     if (_passwordController.text.trim().length < 6) {
       setState(() {
         _isLoading = false;
@@ -55,8 +63,12 @@ class _RegisterPageState extends State<RegisterPage> {
           _errorMessage = 'A jelszó túl rövid – minimum 6 karaktert kell tartalmaznia.';
         } else if (e.code == 'email-already-in-use') {
           _errorMessage = 'Ez az e-mail cím már használatban van.';
+        } else if (e.code == 'invalid-email') {
+          _errorMessage = 'Érvénytelen e-mail cím formátum.';
+        } else if (e.code == 'network-request-failed') {
+          _errorMessage = 'Hálózati hiba. Ellenőrizd az internetkapcsolatot.';
         } else {
-          _errorMessage = e.message;
+          _errorMessage = 'Regisztrációs hiba. Kérjük próbáld újra.';
         }
       });
     } catch (e) {
