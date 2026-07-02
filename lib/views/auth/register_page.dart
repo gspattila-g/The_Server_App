@@ -23,6 +23,13 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _register() async {
     setState(() { _errorMessage = null; _isLoading = true; });
+    if (_passwordController.text.trim().length < 6) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'A jelszó túl rövid – minimum 6 karaktert kell tartalmaznia.';
+      });
+      return;
+    }
     try {
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -45,7 +52,7 @@ class _RegisterPageState extends State<RegisterPage> {
     } on FirebaseAuthException catch (e) {
       setState(() {
         if (e.code == 'weak-password') {
-          _errorMessage = 'A megadott jelszó túl gyenge.';
+          _errorMessage = 'A jelszó túl rövid – minimum 6 karaktert kell tartalmaznia.';
         } else if (e.code == 'email-already-in-use') {
           _errorMessage = 'Ez az e-mail cím már használatban van.';
         } else {
