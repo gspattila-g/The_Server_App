@@ -51,6 +51,7 @@ class _WelcomePageState extends State<WelcomePage>
       const SettingsPage(),
     ];
     WidgetsBinding.instance.addObserver(this);
+    FcmService.pendingTabSwitch.addListener(_onPendingTabSwitch);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FcmService.initialize(context);
       if (_uid != null) {
@@ -59,9 +60,18 @@ class _WelcomePageState extends State<WelcomePage>
     });
   }
 
+  void _onPendingTabSwitch() {
+    final tab = FcmService.pendingTabSwitch.value;
+    if (tab != null && mounted) {
+      setState(() => _currentIndex = tab);
+      FcmService.pendingTabSwitch.value = null;
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FcmService.pendingTabSwitch.removeListener(_onPendingTabSwitch);
     if (_uid != null) PresenceService.setOffline(_uid!);
     super.dispose();
   }
