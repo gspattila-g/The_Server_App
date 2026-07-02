@@ -84,6 +84,16 @@ class NotificationService {
     }
   }
 
+  // One-time fetch of all existing notification IDs for a user — used to seed
+  // the "seen" set before starting the real-time stream so old notifications
+  // never trigger snackbars, regardless of how the stream delivers them.
+  Future<Set<String>> getExistingNotificationIds(String receiverId) async {
+    final snapshot = await _notificationsCollection
+        .where('receiverId', isEqualTo: receiverId)
+        .get();
+    return snapshot.docs.map((d) => d.id).toSet();
+  }
+
   Stream<int> getUnreadCountStream(String receiverId) {
     return _notificationsCollection
         .where('receiverId', isEqualTo: receiverId)

@@ -42,7 +42,6 @@ class _WelcomePageState extends State<WelcomePage>
 
   StreamSubscription<List<AppNotification>>? _notifSub;
   Set<String> _seenNotifIds = {};
-  DateTime? _subscribeTime;
 
   @override
   void initState() {
@@ -59,45 +58,46 @@ class _WelcomePageState extends State<WelcomePage>
     ];
     WidgetsBinding.instance.addObserver(this);
     FcmService.pendingTabSwitch.addListener(_onPendingTabSwitch);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       FcmService.initialize(context);
       if (_uid != null) {
         PresenceService.initialize(_uid!);
-        _subscribeToNotifications(_uid!);
+        await _subscribeToNotifications(_uid!);
       }
     });
   }
 
-  void _subscribeToNotifications(String uid) {
-    _notifSub?.cancel();
+  Future<void> _subscribeToNotifications(String uid) async {
+    await _notifSub?.cancel();
     _seenNotifIds = {};
-    // Record when this subscription started — only notifications created AFTER
-    // this moment are eligible to show a snackbar. This reliably suppresses all
-    // pre-existing notifications regardless of how many Firestore events fire
-    // during initial load.
-    _subscribeTime = DateTime.now();
 
-    debugPrint('[NOTIF] Subscribing for uid=$uid at ${_subscribeTime}');
+    debugPrint('[NOTIF] Fetching existing notification IDs for uid=$uid');
+
+    // Seed _seenNotifIds with every notification that already exists in Firestore
+    // before the stream starts. This way incremental delivery order and
+    // server/client clock skew cannot cause old notifications to look "new".
+    try {
+      _seenNotifIds = await _notificationService.getExistingNotificationIds(uid);
+      debugPrint('[NOTIF] Seeded ${_seenNotifIds.length} existing IDs');
+    } catch (e) {
+      debugPrint('[NOTIF] Could not seed IDs: $e');
+    }
+
+    if (!mounted) return;
 
     _notifSub = _notificationService
         .getNotificationsForUser(uid)
         .listen((notifications) {
       if (!mounted) return;
 
-      debugPrint('[NOTIF] Stream event: ${notifications.length} total notifications');
+      debugPrint('[NOTIF] Stream event: ${notifications.length} total');
 
-      final genuinelyNew = notifications.where((n) {
-        if (_seenNotifIds.contains(n.id ?? '')) return false;
-        // Must have been created after we started listening
-        return n.timestamp.toDate().isAfter(_subscribeTime!);
-      }).toList();
+      final newNotifs = notifications
+          .where((n) => !_seenNotifIds.contains(n.id ?? ''))
+          .toList();
 
-      debugPrint('[NOTIF] Genuinely new: ${genuinelyNew.length}');
-      for (final n in genuinelyNew) {
-        debugPrint('[NOTIF]   NEW id=${n.id} type=${n.type} ts=${n.timestamp.toDate()}');
-      }
-
-      if (genuinelyNew.isNotEmpty) _showNotifSnackbar(genuinelyNew.first);
+      debugPrint('[NOTIF] New: ${newNotifs.length}');
+      if (newNotifs.isNotEmpty) _showNotifSnackbar(newNotifs.first);
 
       _seenNotifIds = notifications.map((n) => n.id ?? '').toSet();
     }, onError: (_) {});
