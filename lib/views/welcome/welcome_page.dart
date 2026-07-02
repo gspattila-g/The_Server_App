@@ -42,7 +42,7 @@ class _WelcomePageState extends State<WelcomePage>
 
   StreamSubscription<List<AppNotification>>? _notifSub;
   Set<String> _seenNotifIds = {};
-  bool _notifInitDone = false;
+  DateTime? _subscribeTime;
 
   @override
   void initState() {
@@ -71,33 +71,40 @@ class _WelcomePageState extends State<WelcomePage>
   void _subscribeToNotifications(String uid) {
     _notifSub?.cancel();
     _seenNotifIds = {};
-    _notifInitDone = false;
+    // Record when this subscription started — only notifications created AFTER
+    // this moment are eligible to show a snackbar. This reliably suppresses all
+    // pre-existing notifications regardless of how many Firestore events fire
+    // during initial load.
+    _subscribeTime = DateTime.now();
+
+    debugPrint('[NOTIF] Subscribing for uid=$uid at ${_subscribeTime}');
 
     _notifSub = _notificationService
         .getNotificationsForUser(uid)
         .listen((notifications) {
       if (!mounted) return;
 
-      if (!_notifInitDone) {
-        _seenNotifIds = {
-          ..._seenNotifIds,
-          ...notifications.map((n) => n.id ?? '').where((id) => id.isNotEmpty),
-        };
-        if (notifications.isNotEmpty) _notifInitDone = true;
-        return;
+      debugPrint('[NOTIF] Stream event: ${notifications.length} total notifications');
+
+      final genuinelyNew = notifications.where((n) {
+        if (_seenNotifIds.contains(n.id ?? '')) return false;
+        // Must have been created after we started listening
+        return n.timestamp.toDate().isAfter(_subscribeTime!);
+      }).toList();
+
+      debugPrint('[NOTIF] Genuinely new: ${genuinelyNew.length}');
+      for (final n in genuinelyNew) {
+        debugPrint('[NOTIF]   NEW id=${n.id} type=${n.type} ts=${n.timestamp.toDate()}');
       }
 
-      final newNotifs = notifications
-          .where((n) => !_seenNotifIds.contains(n.id ?? ''))
-          .toList();
-
-      if (newNotifs.isNotEmpty) _showNotifSnackbar(newNotifs.first);
+      if (genuinelyNew.isNotEmpty) _showNotifSnackbar(genuinelyNew.first);
 
       _seenNotifIds = notifications.map((n) => n.id ?? '').toSet();
     }, onError: (_) {});
   }
 
   void _showNotifSnackbar(AppNotification notification) {
+    debugPrint('[NOTIF] SHOWING SNACKBAR: ${notification.message}');
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
 

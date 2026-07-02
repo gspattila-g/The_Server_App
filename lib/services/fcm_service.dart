@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -14,10 +16,11 @@ class FcmService {
   static final ValueNotifier<int?> pendingCommunityTab = ValueNotifier(null);
   static OverlayEntry? _currentBanner;
 
-  // Guard: stream listeners are added only once per app session.
-  // Without this, every login adds a new onMessage listener and a single
-  // FCM push shows N snackbars (one per accumulated listener).
-  static bool _listenersRegistered = false;
+  // These subscriptions are stored as statics so they are registered exactly
+  // once per app process and never accumulate across logins.
+  static StreamSubscription<String>? _tokenRefreshSub;
+  static StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
+  static StreamSubscription<RemoteMessage>? _onMessageSub;
 
   static Future<void> initialize(BuildContext context) async {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
@@ -30,17 +33,21 @@ class FcmService {
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleTap(initial);
 
-    if (_listenersRegistered) return;
-    _listenersRegistered = true;
+    if (_onMessageSub != null) {
+      debugPrint('[FCM] initialize called again — listeners already registered, skipping.');
+      return;
+    }
+    debugPrint('[FCM] Registering listeners for the first time.');
 
-    _messaging.onTokenRefresh.listen(_saveToken);
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_saveToken);
 
     // App háttérből notification tapra megnyitva
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
+    _onMessageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // Előtérben érkező értesítések
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
+      debugPrint('[FCM] onMessage received: type=${message.data['type']} title=${notification?.title}');
       if (notification == null) return;
 
       if (message.data['type'] == 'message') {
@@ -49,6 +56,7 @@ class FcmService {
           notification.body ?? '',
         );
       } else {
+        debugPrint('[FCM] SHOWING FCM SNACKBAR');
         final ctx = navigatorKey.currentContext;
         if (ctx == null) return;
         ScaffoldMessenger.of(ctx).showSnackBar(
