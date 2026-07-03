@@ -47,31 +47,17 @@ class FcmService {
     // Előtérben érkező értesítések
     _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
-      debugPrint('[FCM] onMessage received: type=${message.data['type']} title=${notification?.title}');
       if (notification == null) return;
 
+      // Only chat messages get the banner here — all other notification types
+      // (like, friend_request, comment) are handled by the Firestore stream in
+      // WelcomePage, which is the authoritative source for foreground snackbars.
+      // Showing them here too would duplicate snackbars and cause cross-account
+      // delivery when the FCM token is reused across logins on the same device.
       if (message.data['type'] == 'message') {
         _showChatBanner(
           notification.title ?? 'Új üzenet',
           notification.body ?? '',
-        );
-      } else {
-        debugPrint('[FCM] SHOWING FCM SNACKBAR');
-        final ctx = navigatorKey.currentContext;
-        if (ctx == null) return;
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(notification.title ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (notification.body != null) Text(notification.body!),
-              ],
-            ),
-            duration: const Duration(seconds: 4),
-          ),
         );
       }
     });

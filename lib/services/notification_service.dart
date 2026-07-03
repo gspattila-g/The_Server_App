@@ -84,14 +84,40 @@ class NotificationService {
     }
   }
 
-  // One-time fetch of all existing notification IDs for a user — used to seed
-  // the "seen" set before starting the real-time stream so old notifications
-  // never trigger snackbars, regardless of how the stream delivers them.
-  Future<Set<String>> getExistingNotificationIds(String receiverId) async {
-    final snapshot = await _notificationsCollection
+  // Returns the server-side timestamp of the most recent existing notification,
+  // or Timestamp.now() if none exist. Used as an anchor so the real-time stream
+  // only delivers genuinely new notifications (timestamp > anchor).
+  Future<Timestamp> getLastNotificationTimestamp(String receiverId) async {
+    try {
+      final snap = await _notificationsCollection
+          .where('receiverId', isEqualTo: receiverId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+      if (snap.docs.isNotEmpty) {
+        final data = snap.docs.first.data() as Map<String, dynamic>;
+        return data['timestamp'] as Timestamp;
+      }
+    } catch (_) {}
+    return Timestamp.now();
+  }
+
+  // Real-time stream of notifications created strictly AFTER [after].
+  // This ensures old/existing notifications never trigger snackbars.
+  Stream<List<AppNotification>> getNewNotificationsStream(
+      String receiverId, Timestamp after) {
+    return _notificationsCollection
         .where('receiverId', isEqualTo: receiverId)
-        .get();
-    return snapshot.docs.map((d) => d.id).toSet();
+        .where('timestamp', isGreaterThan: after)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) =>
+              AppNotification.fromFirestore(doc.data() as Map<String, dynamic>, doc.id))
+          .where((n) => n.type != 'message')
+          .toList();
+    });
   }
 
   Stream<int> getUnreadCountStream(String receiverId) {

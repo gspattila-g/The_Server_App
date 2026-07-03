@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/notification.dart';
 import '../../navigation_key.dart';
@@ -62,44 +63,48 @@ class _WelcomePageState extends State<WelcomePage>
       FcmService.initialize(context);
       if (_uid != null) {
         PresenceService.initialize(_uid!);
-        await _subscribeToNotifications(_uid!);
+        try {
+          await _subscribeToNotifications(_uid!);
+        } catch (_) {}
       }
     });
   }
 
   Future<void> _subscribeToNotifications(String uid) async {
     await _notifSub?.cancel();
-    _seenNotifIds = {};
 
-    debugPrint('[NOTIF] Fetching existing notification IDs for uid=$uid');
+    // Layer 1 — persistent seen IDs: notifications whose snackbar was already
+    // shown in a previous session are stored in SharedPreferences so they are
+    // never shown again, even if the Firestore query anchor falls back to
+    // Timestamp.now() (e.g., on first install or after a cache miss).
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList('seen_notif_ids_$uid') ?? [];
+    _seenNotifIds = stored.toSet();
 
-    // Seed _seenNotifIds with every notification that already exists in Firestore
-    // before the stream starts. This way incremental delivery order and
-    // server/client clock skew cannot cause old notifications to look "new".
-    try {
-      _seenNotifIds = await _notificationService.getExistingNotificationIds(uid);
-      debugPrint('[NOTIF] Seeded ${_seenNotifIds.length} existing IDs');
-    } catch (e) {
-      debugPrint('[NOTIF] Could not seed IDs: $e');
-    }
+    // Layer 2 — server-side anchor: the stream only requests notifications
+    // strictly newer than the most-recent existing document. This eliminates
+    // old notifications at the Firestore query level before they even arrive.
+    final anchor = await _notificationService.getLastNotificationTimestamp(uid);
 
     if (!mounted) return;
 
     _notifSub = _notificationService
-        .getNotificationsForUser(uid)
+        .getNewNotificationsStream(uid, anchor)
         .listen((notifications) {
       if (!mounted) return;
-
-      debugPrint('[NOTIF] Stream event: ${notifications.length} total');
 
       final newNotifs = notifications
           .where((n) => !_seenNotifIds.contains(n.id ?? ''))
           .toList();
 
-      debugPrint('[NOTIF] New: ${newNotifs.length}');
-      if (newNotifs.isNotEmpty) _showNotifSnackbar(newNotifs.first);
-
-      _seenNotifIds = notifications.map((n) => n.id ?? '').toSet();
+      if (newNotifs.isNotEmpty) {
+        _showNotifSnackbar(newNotifs.first);
+        for (final n in newNotifs) {
+          _seenNotifIds.add(n.id ?? '');
+        }
+        // Persist so next login already knows about these notifications.
+        prefs.setStringList('seen_notif_ids_$uid', _seenNotifIds.toList());
+      }
     }, onError: (_) {});
   }
 
